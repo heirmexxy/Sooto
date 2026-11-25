@@ -1,0 +1,31 @@
+{
+  "name": "bank",
+  "owner": {
+    "name": "Nwachinemere Emeka",
+    "url": "https://github.com/heirmexxy"
+  },
+  "metadata": {
+    "description": "Sooto: ask your AI assistant about your own bank accounts. Read-only, self-hosted, on PSD2 open banking via Enable Banking. Works with any MCP client.",
+    "version": "0.1.1"
+  },
+  "plugins": [
+    {
+      "name": "bank",
+      "source": "./plugin",
+      "description": "Sooto for Claude Code: /bank:setup walks you through installing it locally, /bank:deploy through hosting it; plus a skill with account mapping, categorisation rules and a monthly review format.",
+      "version": "0.1.1",
+      "author": {
+        "name": "Nwachinemere Emeka"
+      },
+      "homepage": "https://github.com/heirmexxy/Sooto",
+      "license": "MIT",
+      "keywords": [
+        "banking",
+        "personal-finance",
+        "psd2",
+        "enable-banking"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

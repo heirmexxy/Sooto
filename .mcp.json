@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bank": {
+      "command": "node",
+      "args": ["--env-file=.env", "src/stdio.ts"]
+    }
+  }
+}

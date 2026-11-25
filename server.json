@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.heirmexxy/Sooto",
+  "title": "Sooto",
+  "description": "Read-only MCP server for your own bank accounts via Enable Banking. Self-hosted, one user.",
+  "websiteUrl": "https://github.com/heirmexxy/Sooto",
+  "repository": {
+    "url": "https://github.com/heirmexxy/Sooto",
+    "source": "github"
+  },
+  "version": "0.1.15",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "sooto",
+      "version": "0.1.15",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

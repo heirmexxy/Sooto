@@ -1,0 +1,17 @@
+{
+  "name": "bank",
+  "version": "0.1.1",
+  "description": "Sooto: work with your own bank accounts through a sooto server (Enable Banking, open banking) connector: account mapping, categorisation rules and the monthly review format.",
+  "author": {
+    "name": "Nwachinemere Emeka"
+  },
+  "homepage": "https://github.com/heirmexxy/Sooto",
+  "license": "MIT",
+  "keywords": [
+    "banking",
+    "personal-finance",
+    "psd2",
+    "enable-banking",
+    "mcp"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "sooto",
+  "version": "0.1.0",
+  "mcpName": "io.github.heirmexxy/Sooto",
+  "description": "Sooto: open-source, read-only MCP server that lets any AI assistant connect, prove and protect a person's or business's money across African banks, mobile-money wallets and statements. Reference implementation of the Open Financial Proof (OFP) standard.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "open-banking",
+    "open-finance",
+    "africa",
+    "nigeria",
+    "kenya",
+    "mobile-money",
+    "financial-proof",
+    "verifiable-credentials",
+    "fraud-prevention",
+    "ofp",
+    "sooto"
+  ],
+  "homepage": "https://github.com/heirmexxy/Sooto#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heirmexxy/Sooto.git"
+  },
+  "bugs": {
+    "url": "https://github.com/heirmexxy/Sooto/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch --env-file=.env src/server.ts",
+    "stdio": "node --env-file=.env src/stdio.ts",
+    "check": "node --env-file-if-exists=.env src/cli.ts check",
+    "hash-password": "node src/cli.ts hash-password",
+    "watch": "node --env-file-if-exists=.env src/cli.ts watch",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "chat": "node --env-file-if-exists=.env scripts/local-chat.ts",
+    "local": "node bin/sooto.js",
+    "build": "rm -rf dist/lib && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^5.2.1",
+    "selfsigned": "^5.5.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  },
+  "bin": {
+    "sooto": "bin/sooto.js"
+  },
+  "files": [
+    "bin",
+    "dist/lib",
+    "plugin",
+    "README.md",
+    "LICENSE"
+  ]
+}
