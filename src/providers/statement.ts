@@ -41,7 +41,7 @@ export interface ParsedStatement {
   warnings: string[];
 }
 
-type Field = "date" | "value_date" | "description" | "debit" | "credit" | "amount" | "balance" | "reference" | "direction" | "counterparty";
+export type Field = "date" | "value_date" | "description" | "debit" | "credit" | "amount" | "balance" | "reference" | "direction" | "counterparty";
 
 // Header names seen on African bank and wallet exports, lower-cased. Order matters within a field: the first match wins.
 const HEADERS: Record<Field, string[]> = {
@@ -58,6 +58,13 @@ const HEADERS: Record<Field, string[]> = {
 };
 
 const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+
+/** Which statement field a header cell names, if any. */
+export function headerFieldOf(cell: string): Field | undefined {
+  const c = cell.toLowerCase().replace(/\s+/g, " ").trim();
+  for (const field of Object.keys(HEADERS) as Field[]) if (HEADERS[field].includes(c)) return field;
+  return undefined;
+}
 
 /** Splits one delimited line, honouring double quotes. */
 export function splitLine(line: string, delimiter: string): string[] {

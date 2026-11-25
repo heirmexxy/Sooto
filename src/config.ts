@@ -118,8 +118,25 @@ export function tlsOptions(): { cert: string; key: string } | undefined {
 
 export const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Human-readable list of what is still missing before the server can talk to banks. */
+/**
+ * What is still missing before the server can be used at all: the admin password (hosted), a usable public URL
+ * and a writable data directory. Sooto's statement, proof and scam tools need nothing more than this.
+ */
 export function setupProblems(): string[] {
+  const problems: string[] = [];
+  if (!localMode && !config.adminPasswordHash && !config.adminPassword) problems.push("Admin password is not set");
+  if (!/^https?:\/\//.test(config.baseUrl)) problems.push("BASE_URL must start with http:// or https://");
+  try {
+    mkdirSync(config.dataDir, { recursive: true });
+    accessSync(config.dataDir, constants.W_OK);
+  } catch {
+    problems.push(`DATA_DIR ${config.dataDir} is not writable by this process (check volume permissions)`);
+  }
+  return problems;
+}
+
+/** What is missing for live European bank connections through Enable Banking. Optional. */
+export function bankProblems(): string[] {
   const problems: string[] = [];
   if (!config.appId) problems.push("Enable Banking application id is not set");
   else if (!looksLikeUuid.test(config.appId)) problems.push("EB_APP_ID does not look like a UUID");
@@ -132,19 +149,17 @@ export function setupProblems(): string[] {
       problems.push(`Cannot read private key: ${(err as Error).message}`);
     }
   }
-  if (!localMode && !config.adminPasswordHash && !config.adminPassword) problems.push("Admin password is not set");
-  if (!/^https?:\/\//.test(config.baseUrl)) problems.push("BASE_URL must start with http:// or https://");
-  try {
-    mkdirSync(config.dataDir, { recursive: true });
-    accessSync(config.dataDir, constants.W_OK);
-  } catch {
-    problems.push(`DATA_DIR ${config.dataDir} is not writable by this process (check volume permissions)`);
-  }
   return problems;
 }
 
+/** The server is usable: statements, proofs and the scam shield work. */
 export function isConfigured(): boolean {
   return setupProblems().length === 0;
+}
+
+/** Live bank connections (Enable Banking) are set up as well. */
+export function bankConfigured(): boolean {
+  return isConfigured() && bankProblems().length === 0;
 }
 
 export function readPrivateKey(): string {

@@ -14,9 +14,15 @@ export interface SetupInput {
   country?: string;
 }
 
+/**
+ * Hosted: setup is open until an admin password exists; after that the unauthenticated setup routes close, and
+ * Enable Banking can only be added through environment variables. Local: open until bank connections are set up,
+ * since the setup page is only reachable from this machine.
+ */
 export function setupAvailable(): boolean {
-  const hasPassword = config.localMode || Boolean(config.adminPasswordHash || config.adminPassword);
-  return !config.lockedByEnv && !(config.appId && (config.privateKey || config.privateKeyPath) && hasPassword);
+  if (config.lockedByEnv) return false;
+  if (config.localMode) return !(config.appId && (config.privateKey || config.privateKeyPath));
+  return !(config.adminPasswordHash || config.adminPassword);
 }
 
 export type Verify = (appId: string, pem: string) => Promise<Application>;

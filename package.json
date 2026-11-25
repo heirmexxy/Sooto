@@ -1,6 +1,6 @@
 {
   "name": "sooto",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "mcpName": "io.github.heirmexxy/Sooto",
   "description": "Sooto: open-source, read-only MCP server that lets any AI assistant connect, prove and protect a person's or business's money across African banks, mobile-money wallets and statements. Reference implementation of the Open Financial Proof (OFP) standard.",
   "keywords": [

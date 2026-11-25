@@ -4,13 +4,13 @@
 process.env.SOOTO_LOCAL ??= "1";
 const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
 const { createServer } = await import("./mcp.ts");
-const { isConfigured } = await import("./config.ts");
+const { bankConfigured } = await import("./config.ts");
 const { ensureLocalServer } = await import("./local.ts");
 
 // The browser-facing side (setup page, bank redirect) runs on localhost over
 // https and starts with the process, so the redirect URL is always reachable.
 ensureLocalServer().catch((err) => console.error("[bank] could not start the local server:", err.message));
-if (!isConfigured()) console.error("[bank] not configured yet: ask your assistant anything and it will point you to the setup page");
+if (!bankConfigured()) console.error("[sooto] statement, proof and scam tools ready; live bank connections are not set up (optional)");
 
 const transport = new StdioServerTransport();
 // Exit with the client: when stdin closes, the localhost listener must not keep the process alive.

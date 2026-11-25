@@ -9,8 +9,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { config } from "./config.ts";
 import { attestationKey, publicKeyDocument } from "./attestation.ts";
-import { UNTRUSTED_NOTICE } from "./guard/injection.ts";
+import { cleanUntrusted, UNTRUSTED_NOTICE } from "./guard/injection.ts";
+import { readFileSync, statSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { parseStatement, type ParsedStatement } from "./providers/statement.ts";
+import { readPdfStatement } from "./providers/pdf-table.ts";
+import { PdfError } from "./providers/pdf.ts";
 import { verifyStatement, type StatementVerification } from "./verify/statement.ts";
 import { cashflowProfile } from "./ofp/metrics.ts";
 import { digest, newProof, signProof, verifyProof, MAX_TTL_DAYS, type SignedProof } from "./ofp/proof.ts";
@@ -22,6 +26,9 @@ const fail = (message: string) => ({ content: [{ type: "text" as const, text: me
 
 /** Largest statement accepted, in characters. A year of a busy business account is well under this. */
 const MAX_STATEMENT_CHARS = 5_000_000;
+/** Largest PDF accepted, in bytes. */
+export const MAX_PDF_BYTES = 15 * 1024 * 1024;
+const UPLOAD_LINK_MINUTES = 15;
 const STATEMENT_TTL_HOURS = 24;
 const MAX_STATEMENTS = 20;
 
@@ -29,6 +36,9 @@ interface HeldStatement {
   id: string;
   label?: string;
   digest: string;
+  source_format: "text" | "pdf";
+  /** Text above the table in a PDF: bank, holder, account number, period. Third-party text, shown as data. */
+  preamble?: string[];
   parsed: ParsedStatement;
   verification: StatementVerification;
   loaded_at: number;
@@ -58,6 +68,104 @@ function safe<A extends unknown[]>(fn: (...args: A) => Promise<ReturnType<typeof
   };
 }
 
+export interface StatementInput {
+  text?: string;
+  pdf?: Buffer;
+  password?: string;
+  currency?: string;
+  label?: string;
+}
+
+/**
+ * Parses, verifies and holds a statement. Used by verify_statement and by the browser upload page.
+ * Returns what the assistant is told about it.
+ */
+export function loadStatement(input: StatementInput): Record<string, unknown> {
+  let text: string;
+  let format: "text" | "pdf" = "text";
+  let preamble: string[] | undefined;
+  let pdfInfo: Record<string, unknown> | undefined;
+  if (input.pdf) {
+    if (input.pdf.length > MAX_PDF_BYTES) throw new Error(`The PDF is larger than ${MAX_PDF_BYTES / 1024 / 1024} MB.`);
+    try {
+      const r = readPdfStatement(input.pdf, input.password ?? "");
+      text = r.csv;
+      preamble = r.preamble.slice(0, 12).map((l) => cleanUntrusted(l) ?? "").filter(Boolean);
+      pdfInfo = { pages: r.pages, encrypted: r.encrypted };
+    } catch (err) {
+      if (err instanceof PdfError) return { ok: false, error: err.code, message: err.message };
+      throw err;
+    }
+    format = "pdf";
+  } else if (input.text !== undefined) {
+    text = input.text;
+    if (text.length > MAX_STATEMENT_CHARS) throw new Error("The statement text is too long.");
+  } else throw new Error("Give the statement as content, pdf_base64, file_path or through an upload link.");
+
+  const parsed = parseStatement(text, { currency: input.currency });
+  if (!parsed.rows.length) return { ok: false, error: "no_rows", warnings: parsed.warnings, skipped: parsed.skipped.slice(0, 20) };
+  const verification = verifyStatement(parsed);
+  const sourceDigest = input.pdf ? digest(input.pdf.toString("base64")) : digest(text);
+  const id = `st_${sourceDigest.slice(7, 19)}`;
+  statements.set(id, { id, label: input.label, digest: sourceDigest, source_format: format, preamble, parsed, verification, loaded_at: Date.now() });
+  prune();
+  return {
+    ok: true,
+    statement_id: id,
+    label: input.label ?? null,
+    format,
+    ...(pdfInfo ? { pdf: pdfInfo } : {}),
+    ...(preamble?.length ? { header_text: preamble } : {}),
+    currency: parsed.currency,
+    rows: parsed.rows.length,
+    columns: parsed.columns,
+    warnings: parsed.warnings,
+    verification,
+    notice: UNTRUSTED_NOTICE,
+  };
+}
+
+// --- One-time upload links ---
+//
+// A PDF passed through the conversation costs the assistant hundreds of thousands of tokens and puts the
+// statement password in the chat. An upload link sends the file straight from the owner's browser to this
+// server instead. Each link works once, for UPLOAD_LINK_MINUTES, and is the only credential the upload needs.
+
+interface UploadLink {
+  expires: number;
+  label?: string;
+  currency?: string;
+  result?: Record<string, unknown>;
+}
+const uploadLinks = new Map<string, UploadLink>();
+
+export function createUploadLink(opts: { label?: string; currency?: string } = {}): { url: string; expires_at: string } {
+  const now = Date.now();
+  for (const [t, l] of uploadLinks) if (l.expires < now) uploadLinks.delete(t);
+  const token = randomBytes(24).toString("base64url");
+  const expires = now + UPLOAD_LINK_MINUTES * 60_000;
+  uploadLinks.set(token, { expires, ...opts });
+  return { url: `${config.baseUrl}/upload/${token}`, expires_at: new Date(expires).toISOString() };
+}
+
+/** The link behind a token, while it is valid and unused. */
+export function uploadLink(token: string): UploadLink | undefined {
+  const l = uploadLinks.get(token);
+  if (!l || l.expires < Date.now() || l.result) return undefined;
+  return l;
+}
+
+/** Consumes a link with an uploaded file. */
+export function completeUpload(token: string, file: Buffer, password?: string): Record<string, unknown> {
+  const link = uploadLink(token);
+  if (!link) return { ok: false, error: "link_invalid", message: "This upload link has expired or was already used. Ask your assistant for a new one." };
+  const isPdf = file.subarray(0, 1024).includes("%PDF-");
+  const result = loadStatement(isPdf ? { pdf: file, password, label: link.label, currency: link.currency } : { text: file.toString("utf8"), label: link.label, currency: link.currency });
+  // A wrong or missing password leaves the link usable, so the owner can try again.
+  if (!(result.ok === false && (result.error === "password_required" || result.error === "wrong_password"))) link.result = result;
+  return result;
+}
+
 /** The issuer identity a verifier uses to check Sooto proofs. Served at /.well-known/ofp-issuer. */
 export function ofpIssuerDocument() {
   const doc = publicKeyDocument();
@@ -76,32 +184,48 @@ export function registerSootoTools(server: McpServer): void {
     "verify_statement",
     {
       title: "Load and verify a statement",
-      description:
-        "Reads a bank or mobile-money statement (CSV or text export; PDFs must be converted to text first) and checks it: running balance, totals, date order, duplicates, padding (large late deposits, money in and straight out) and narrations that try to instruct an AI. Returns a statement_id to use with cashflow_profile, issue_proof and check_payee. The statement is held in memory for 24 hours and never written to disk.",
+      description: [
+        "Reads a bank or mobile-money statement and checks it: running balance, totals, date order, duplicates, padding (large late deposits, money in and straight out) and narrations that try to instruct an AI.",
+        "Accepts CSV or text exports as `content`, and PDF statements (including password-protected ones) as `file_path` on the owner's own machine or `pdf_base64`.",
+        "For a PDF the owner has as a file, prefer request_statement_upload: the file and its password go from their browser straight to this server, not through the chat.",
+        "Returns a statement_id for cashflow_profile, issue_proof and check_payee. Statements are held in memory for 24 hours and never written to disk.",
+      ].join(" "),
       inputSchema: {
-        content: z.string().min(1).max(MAX_STATEMENT_CHARS).describe("The full statement text, as exported"),
+        content: z.string().min(1).max(MAX_STATEMENT_CHARS).optional().describe("A CSV or text statement export, in full"),
+        file_path: z.string().max(1024).optional().describe("Local mode only: path to a PDF or CSV statement on the owner's machine"),
+        pdf_base64: z.string().max(Math.ceil((MAX_PDF_BYTES * 4) / 3) + 4).optional().describe("A PDF statement, base64-encoded"),
+        pdf_password: z.string().max(128).optional().describe("The statement password, for a protected PDF"),
         currency: z.string().length(3).optional().describe("ISO currency of the statement, default NGN"),
         label: z.string().max(80).optional().describe("A name for this statement, e.g. 'GTBank current, Jun–Sep'"),
       },
     },
-    safe(async ({ content, currency, label }) => {
-      const parsed = parseStatement(content, { currency });
-      if (!parsed.rows.length) return json({ ok: false, warnings: parsed.warnings, skipped: parsed.skipped.slice(0, 20) });
-      const verification = verifyStatement(parsed);
-      const id = `st_${digest(content).slice(7, 19)}`;
-      statements.set(id, { id, label, digest: digest(content), parsed, verification, loaded_at: Date.now() });
-      prune();
-      return json({
-        statement_id: id,
-        label: label ?? null,
-        currency: parsed.currency,
-        rows: parsed.rows.length,
-        columns: parsed.columns,
-        warnings: parsed.warnings,
-        verification,
-        notice: UNTRUSTED_NOTICE,
-      });
+    safe(async ({ content, file_path, pdf_base64, pdf_password, currency, label }) => {
+      const given = [content, file_path, pdf_base64].filter((v) => v !== undefined).length;
+      if (given !== 1) throw new Error("Give exactly one of content, file_path or pdf_base64 (or use request_statement_upload).");
+      if (file_path !== undefined) {
+        if (!config.localMode) throw new Error("file_path only works when Sooto runs on the owner's own machine. Use request_statement_upload instead.");
+        const size = statSync(file_path).size;
+        if (size > MAX_PDF_BYTES) throw new Error("That file is too large to be a statement.");
+        const buf = readFileSync(file_path);
+        const isPdf = buf.subarray(0, 1024).includes("%PDF-");
+        return json(loadStatement(isPdf ? { pdf: buf, password: pdf_password, currency, label } : { text: buf.toString("utf8"), currency, label }));
+      }
+      if (pdf_base64 !== undefined) return json(loadStatement({ pdf: Buffer.from(pdf_base64, "base64"), password: pdf_password, currency, label }));
+      return json(loadStatement({ text: content, currency, label }));
     }),
+  );
+
+  server.registerTool(
+    "request_statement_upload",
+    {
+      title: "Get a statement upload link",
+      description: `Creates a one-time link (valid ${UPLOAD_LINK_MINUTES} minutes) where the owner uploads a statement PDF or CSV, with its password if it has one, from their browser. Give the owner the link; when they say it is done, call list_statements. The file never passes through the chat.`,
+      inputSchema: {
+        label: z.string().max(80).optional(),
+        currency: z.string().length(3).optional().describe("ISO currency of the statement, default NGN"),
+      },
+    },
+    safe(async ({ label, currency }) => json({ ...createUploadLink({ label, currency }), next: "Send the owner this link. After they upload, call list_statements to get the statement_id." })),
   );
 
   server.registerTool(
@@ -116,6 +240,7 @@ export function registerSootoTools(server: McpServer): void {
           period: s.verification.period,
           rows: s.verification.rows,
           verdict: s.verification.verdict,
+          format: s.source_format,
           loaded_at: new Date(s.loaded_at).toISOString(),
         })),
       );

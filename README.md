@@ -4,7 +4,7 @@
 
 *Sooto* comes from the Yoruba *òótọ́*, "truth".
 
-> **Status: v0.1, early.** Statement verification, OFP proofs, the scam shield and the injection guard work today from any statement export. Live African bank connections (Mono, Stitch, the NIBSS open-banking registry) are next. European banks already work through Enable Banking, as in the code Sooto started from.
+> **Status: v0.2, early.** Statement verification (CSV and PDF, including password-protected PDFs), OFP proofs, the scam shield and the injection guard work today from any statement export. Live African bank connections (Mono, Stitch, the NIBSS open-banking registry) are next. European banks already work through Enable Banking, as in the code Sooto started from.
 
 ## The problem
 
@@ -20,7 +20,8 @@ Sooto makes the record **visible** to its owner, **provable** to others without 
 
 | | Tool | What it does |
 |---|---|---|
-| **Verify** | `verify_statement` | Loads any bank or wallet statement (CSV/text) and checks it: running balance, totals, dates, duplicates, padding (large late deposits, money in and straight out), and narrations that try to instruct an AI |
+| **Verify** | `verify_statement` | Loads any bank or wallet statement (CSV, text or PDF, including password-protected PDFs) and checks it: running balance, totals, dates, duplicates, padding (large late deposits, money in and straight out), and narrations that try to instruct an AI |
+| | `request_statement_upload` | A one-time link where the owner uploads a statement PDF and its password from their browser, so neither passes through the chat (or costs the assistant tokens) |
 | | `list_statements` | Statements loaded in the last 24 hours (held in memory only) |
 | | `cashflow_profile` | Monthly in/out, average and median inflow, how steady it is, payer count and concentration, balance range |
 | **Prove** | `issue_proof` | A signed **Open Financial Proof** for one named verifier and purpose. `funds_held` covers visa proof of funds and deposits; `cashflow` covers lending, tenancy and employment. Gives bands, not transactions, and always includes risk signals |
@@ -51,14 +52,17 @@ State lives in `~/.sooto`. Statements are never written to disk.
 
 ### Hosted deployment
 
-The Docker image, Railway, Fly and Render configurations from the original code still work (`Dockerfile`, `fly.toml`, `render.yaml`, `railway.json`). In v0.1 the hosted setup page still asks for an Enable Banking application. Making setup independent of any single provider is on the roadmap.
+Deploy with the Docker image or the Railway, Fly or Render configurations (`Dockerfile`, `fly.toml`, `render.yaml`, `railway.json`). Then open the server's address and choose **Start with statements**: set the password your assistant will use, and the verify, prove and protect tools work immediately. No bank account or aggregator contract is needed. Add your assistant as a remote MCP connector at `https://YOUR-HOST/mcp`.
+
+European bank connections are optional. Set `EB_APP_ID` and `EB_PRIVATE_KEY` for Enable Banking.
 
 ## Project layout
 
 ```
 src/sooto-tools.ts      the verify / prove / protect MCP tools
 src/guard/injection.ts  cleans and flags third-party text before an AI sees it
-src/providers/          provider interface + statement importer (Mono, Stitch, NIBSS, SMS to come)
+src/providers/          provider interface, statement importer, dependency-free PDF reader
+                        (pdf.ts: text, fonts, RC4/AES decryption; pdf-table.ts: rebuilds the table)
 src/verify/statement.ts statement consistency and padding checks
 src/ofp/                Open Financial Proof: metrics, templates, signing and verification
 src/shield/scam.ts      message and payee risk checks
@@ -70,7 +74,7 @@ test/                   node:test suites; run with npm test
 
 ## Roadmap
 
-1. **Connect:** provider adapters for Mono and Stitch; NIBSS open banking once licensed; SMS bank-alert ingestion through a companion app; PDF-to-text extraction; mobile-money statement formats (M-Pesa, MTN MoMo).
+1. **Connect:** provider adapters for Mono and Stitch; NIBSS open banking once licensed; SMS bank-alert ingestion through a companion app; mobile-money statement formats (M-Pesa, MTN MoMo); OCR for scanned statements.
 2. **Prove:** BVN/NIN identity linking; OFP v0.2 as W3C Verifiable Credentials / SD-JWT with EU Digital Identity Wallet compatibility; L3 bank co-signing; QR proofs that can be checked offline; a verifier portal.
 3. **Protect:** real-time watches for account drains and money-mule patterns; a shared scam-account signal network; WhatsApp and USSD channels.
 4. **Secure:** consent and access ledger; "know your agent" identity and scoped mandates; the OFP security profile and conformance tests.

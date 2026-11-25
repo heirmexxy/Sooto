@@ -198,6 +198,19 @@ export function setupPage(opts: { error?: string; values?: { app_id?: string; co
     `Set up ${config.appName}`,
     `<p>Everything you enter stays on this server.</p>
      ${opts.error ? `<p class="error banner">${esc(opts.error)}</p>` : ""}
+     ${config.localMode ? "" : `<div class="box">
+       <h2>Start with statements</h2>
+       <p class="muted">Verify statements, issue Open Financial Proofs and check messages for scams, without connecting a bank. Choose the password your assistant will use to connect. Bank connections can be added later through environment variables.</p>
+       <form method="post" action="/setup">
+         <input type="hidden" name="mode" value="password_only">
+         <label for="po_password">Password, 12 characters or more</label>
+         <input id="po_password" type="password" name="password" required minlength="12" autocomplete="new-password">
+         <label for="po_password2">Repeat password</label>
+         <input id="po_password2" type="password" name="password2" required minlength="12" autocomplete="new-password">
+         <button type="submit">Start with statements</button>
+       </form>
+     </div>
+     <p class="or"><span>or also connect European banks (Enable Banking)</span></p>`}
      <div class="box">
        <h2>Let this server register the application</h2>
        <p class="muted">Enable Banking emails you their sign-in link. ${config.localMode ? "When you click it," : "You paste it on the next page, and"} this server creates the application in your Enable Banking account, with the right redirect and policy addresses, and makes the key. The sign-in is used for that one step and not kept. If you have no Enable Banking account yet, the same link creates one.</p>
@@ -423,3 +436,30 @@ export const termsPage = () =>
     `<p>Personal software run by the person who deployed it, for their own non-commercial use, under Enable Banking's terms for individual use of their production environment. The operator is solely responsible for this instance.</p>
      <p>Use at your own risk. The software is provided as is, without warranty of any kind, under the MIT licence. Its authors accept no liability for its use and are not a party to the operator's agreements with Enable Banking or any bank.</p>`,
   );
+
+/** One-time statement upload: the file and its password go from the browser straight to this server. */
+export function uploadPage(opts: { label?: string; expires: string }): string {
+  const body = `<h1>Upload your statement</h1>
+<p class="muted">${opts.label ? `For: <b>${esc(opts.label)}</b>. ` : ""}PDF or CSV, as downloaded from your bank or wallet. It is checked and held in memory for 24 hours, never stored on disk. This link works once.</p>
+<form id="f">
+  <label for="file">Statement file</label>
+  <input id="file" type="file" accept=".pdf,.csv,.txt,application/pdf,text/csv,text/plain" required>
+  <label for="pw">Statement password <span class="muted">(if the PDF has one)</span></label>
+  <input id="pw" type="password" autocomplete="off" placeholder="Usually sent with the statement email or by SMS">
+  <button type="submit" style="margin-top:18px;width:100%;padding:12px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);font:inherit;font-weight:700;cursor:pointer">Upload and check</button>
+</form>
+<div id="out" style="margin-top:16px"></div>
+<p class="muted small" style="margin-top:14px">Link expires ${esc(opts.expires)} UTC.</p>
+<script>
+const f=document.getElementById('f'),out=document.getElementById('out');
+const say=(cls,html)=>{out.innerHTML='<p class="'+cls+'">'+html+'</p>'};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+f.addEventListener('submit',async e=>{e.preventDefault();const file=document.getElementById('file').files[0];if(!file)return;
+say('muted','Checking…');
+try{const r=await fetch(location.pathname,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Statement-Password':document.getElementById('pw').value},body:file});
+const j=await r.json();
+if(j.ok){f.style.display='none';say('', '<b>Done.</b> '+esc(j.rows)+' transactions, '+esc(j.period||'')+'. Verdict: <b>'+esc(j.verdict)+'</b>. '+esc(j.summary)+'<br><br>Go back to your assistant and say it is uploaded.');}
+else say('error',esc(j.message||'The statement could not be read.'));}catch(err){say('error','Upload failed: '+esc(err.message));}});
+</script>`;
+  return shell("Upload statement", body, { pill: "Secure upload" });
+}

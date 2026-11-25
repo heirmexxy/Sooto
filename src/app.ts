@@ -5,17 +5,17 @@ import express from "express";
 import { mcpAuthRouter, getOAuthProtectedResourceMetadataUrl } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { config, isConfigured, setupProblems } from "./config.ts";
+import { bankConfigured, config, isConfigured, setupProblems } from "./config.ts";
 import { eb, EnableBankingError } from "./enablebanking.ts";
 import { store } from "./store.ts";
 import { attestOnly, SCOPE_ATTEST, SCOPE_READ, SingleUserProvider } from "./auth.ts";
-import { connectedPage, failedPage, privacyPage, returningPage, setupPage, signedInPage, welcomePage, checkEmailPage, signInFailedPage, statusPage, termsPage } from "./pages.ts";
+import { uploadPage, connectedPage, failedPage, privacyPage, returningPage, setupPage, signedInPage, welcomePage, checkEmailPage, signInFailedPage, statusPage, termsPage } from "./pages.ts";
 import { applyPassword, applySetup, setupAvailable } from "./setup.ts";
 import { finishRegistration, pendingEmail, registeredButUnfinished, startRegistration } from "./register.ts";
 import { createServer, VERSION } from "./mcp.ts";
 import { startWatcher } from "./watcher.ts";
 import { attestationEnabled, publicKeyDocument } from "./attestation.ts";
-import { ofpIssuerDocument } from "./sooto-tools.ts";
+import { completeUpload, MAX_PDF_BYTES, ofpIssuerDocument, uploadLink } from "./sooto-tools.ts";
 
 export interface AppOptions {
   /** Mount the OAuth server and the /mcp endpoint. Off in local (stdio) mode. */
@@ -67,7 +67,7 @@ export function createApp(opts: AppOptions) {
 
   let watcherStarted = false;
   function startWatcherOnce(): void {
-    if (watcherStarted || !isConfigured()) return;
+    if (watcherStarted || !bankConfigured()) return;
     watcherStarted = true;
     startWatcher();
   }
@@ -139,17 +139,18 @@ export function createApp(opts: AppOptions) {
     if (!setupAvailable()) return void res.status(404).type("html").send(failedPage("Setup is already complete."));
     const body = req.body as Record<string, string | undefined>;
     const registered = registeredButUnfinished();
-    const error = registered && !body.app_id ? applyPassword(body) : await applySetup(body);
+    const passwordOnly = body.mode === "password_only" && !config.localMode;
+    const error = passwordOnly || (registered && !body.app_id) ? applyPassword(body) : await applySetup(body);
     if (error) return void res.status(400).set("Content-Security-Policy", setupCsp).type("html").send(setupPage({ error, values: { app_id: body.app_id, country: body.country }, baseUrl: config.baseUrl, registered: registered ?? undefined }));
-    log("setup completed via the setup page");
+    log(`setup completed via the setup page${passwordOnly ? " (statements only, no bank connections)" : ""}`);
     if (opts.remote) rememberPasswordFingerprint();
     startWatcherOnce();
-    res.redirect(303, "/?welcome");
+    res.redirect(303, passwordOnly ? "/" : "/?welcome");
   });
 
   // Readable from any origin: the Get started page on the website polls it from the visitor's browser
   // to tell when their own server is up. It carries no data beyond "running" and "configured".
-  app.get("/healthz", (_req, res) => void res.set("Access-Control-Allow-Origin", "*").json({ ok: true, version: VERSION, configured: isConfigured() }));
+  app.get("/healthz", (_req, res) => void res.set("Access-Control-Allow-Origin", "*").json({ ok: true, version: VERSION, configured: isConfigured(), bank_connections: bankConfigured() }));
 
   // The public half of the attestation key. Readable from any origin and without
   // a token: it only lets someone check a signature this server made, and a
@@ -164,6 +165,32 @@ export function createApp(opts: AppOptions) {
   // Public by design and always on: it can verify signatures, never make them.
   app.get("/.well-known/ofp-issuer", (_req, res) => {
     res.set("Access-Control-Allow-Origin", "*").set("Cache-Control", "public, max-age=300").json(ofpIssuerDocument());
+  });
+
+  // One-time statement upload links (request_statement_upload). The token in the path is the only credential:
+  // 24 random bytes, single use, 15 minutes. The page needs one inline script to send the file.
+  const uploadCsp = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  app.get("/upload/:token", (req, res) => {
+    const link = uploadLink(req.params.token);
+    if (!link) return void res.status(404).type("html").send(failedPage("This upload link has expired or was already used. Ask your assistant for a new one."));
+    res.set("Content-Security-Policy", uploadCsp).set("Cache-Control", "no-store").type("html").send(uploadPage({ label: link.label, expires: new Date(link.expires).toISOString().slice(0, 16).replace("T", " ") }));
+  });
+  app.post("/upload/:token", express.raw({ type: "*/*", limit: MAX_PDF_BYTES }), (req, res) => {
+    if (!uploadLink(req.params.token)) return void res.status(404).json({ ok: false, message: "This upload link has expired or was already used." });
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return void res.status(400).json({ ok: false, message: "No file received." });
+    const password = req.get("X-Statement-Password") || undefined;
+    try {
+      const r = completeUpload(req.params.token, req.body, password);
+      const v = r.verification as { verdict?: string; summary?: string; period?: { from?: string; to?: string } } | undefined;
+      log(`statement upload: ${r.ok ? `ok, ${r.rows} rows, ${v?.verdict}` : `refused (${r.error})`}`);
+      res.set("Cache-Control", "no-store").json(
+        r.ok
+          ? { ok: true, statement_id: r.statement_id, rows: r.rows, verdict: v?.verdict, summary: v?.summary, period: v?.period ? `${v.period.from} to ${v.period.to}` : undefined }
+          : { ok: false, error: r.error, message: r.message ?? "No transactions could be read from this file." },
+      );
+    } catch (err) {
+      res.status(400).json({ ok: false, message: (err as Error).message });
+    }
   });
 
   app.get("/privacy", (_req, res) => void res.type("html").send(privacyPage()));

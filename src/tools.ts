@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { config, isConfigured } from "./config.ts";
+import { bankConfigured, config } from "./config.ts";
 import { eb, EnableBankingError } from "./enablebanking.ts";
 import { pendingAuthIsLive, store, type StoredAccount, type WatchRule } from "./store.ts";
 import {
@@ -135,9 +135,9 @@ async function fetchAcross(refs: string[] | undefined, from: string, to: string)
 function guard<A extends unknown[]>(fn: (...args: A) => Promise<ReturnType<typeof json> | ReturnType<typeof fail>>) {
   return async (...args: A) => {
     try {
-      if (!isConfigured()) {
+      if (!bankConfigured()) {
         return fail(
-          `${config.appName} is not set up yet. Tell the owner to open ${config.baseUrl} in a browser and follow the setup page: it can register the Enable Banking application for them from their email, or take an application id and key file.` +
+          `Live bank connections are not set up on this ${config.appName} server. Statements still work: use verify_statement or request_statement_upload. To add European bank connections, the owner sets EB_APP_ID and EB_PRIVATE_KEY (or, on their own machine, opens ${config.baseUrl} and follows the setup page).` +
             (config.localMode ? " The browser will warn about a self-signed certificate on localhost; continue past it." : ""),
         );
       }
