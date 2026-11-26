@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Financial Proof: prove facts about money without sharing the money</title>
+<meta name="description" content="Open Financial Proof (OFP) is an open, royalty-free format for signed, privacy-preserving answers about a person's or business's finances, for one verifier and one purpose.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1D2733;
+    --soft: #4B5866;
+    --green: #23574A;
+    --green-2: #2F7562;
+    --wash: #E8F0EC;
+    --brass: #A77B22;
+    --rule: #D5DCE0;
+    --bad: #A8322B;
+    --bg: #FFFFFF;
+    --serif: "Lora", Georgia, serif;
+    --sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "DejaVu Sans Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1.05rem/1.65 var(--sans); }
+  a { color: var(--green); text-underline-offset: .18em; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; border-radius: 4px; }
+  .wrap { width: min(70rem, 100% - 3rem); margin-inline: auto; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.18; margin: 0; }
+  p { margin: 0; }
+  .skip { position: absolute; left: -999px; } .skip:focus { left: 1rem; top: 1rem; background: #fff; padding: .5rem 1rem; z-index: 9; }
+
+  header { border-bottom: 1px solid var(--rule); }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-block: 1rem; }
+  .mark { display: flex; align-items: center; gap: .7rem; color: var(--ink); text-decoration: none; font: 600 1.15rem/1 var(--serif); }
+  .mark svg { width: 1.9rem; height: 1.9rem; }
+  header nav { display: flex; gap: 1.5rem; font-size: .95rem; }
+  header nav a { color: var(--ink); text-decoration: none; white-space: nowrap; }
+  header nav a:hover { color: var(--green); text-decoration: underline; }
+
+  .btn { display: inline-block; font: 600 1rem/1 var(--sans); padding: .85rem 1.25rem; border-radius: 6px; text-decoration: none; border: 2px solid var(--green); cursor: pointer; }
+  .btn-solid { background: var(--green); color: #fff; }
+  .btn-line { background: transparent; color: var(--green); }
+
+  /* Hero */
+  .hero { padding: 4.5rem 0 4rem; }
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 4rem; align-items: center; }
+  .status { font-size: .92rem; color: var(--soft); display: flex; align-items: center; gap: .5rem; }
+  .status::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: var(--brass); }
+  .hero h1 { margin-top: 1rem; font-size: clamp(2.3rem, 4.6vw, 3.6rem); max-width: 17ch; }
+  .hero .lede { margin-top: 1.3rem; font-size: 1.2rem; color: var(--soft); max-width: 34rem; }
+  .hero .ctas { margin-top: 2rem; display: flex; gap: .8rem; flex-wrap: wrap; }
+  .roles { width: 100%; height: auto; }
+  .roles text { font-family: var(--sans); }
+
+  section { padding: 4.5rem 0; }
+  .head { max-width: 40rem; }
+  .head h2 { font-size: clamp(1.8rem, 3.2vw, 2.5rem); }
+  .head p { margin-top: .9rem; font-size: 1.12rem; color: var(--soft); }
+
+  /* Problem */
+  .problem { background: var(--wash); }
+  .problem .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+  .problem .story p { font-size: 1.1rem; max-width: 34rem; }
+  .problem .story p + p { margin-top: 1rem; }
+  .problem .story .belief { font: 600 1.35rem/1.4 var(--serif); color: var(--green); margin-top: 1.6rem; }
+  .today { list-style: none; margin: 0; padding: 0; }
+  .today li { padding: 1rem 0; border-bottom: 1px solid #C9D8D0; }
+  .today li:first-child { padding-top: 0; }
+  .today b { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
+  .today span { color: var(--soft); }
+
+  /* Demo: the bold element */
+  .demo { border-top: 1px solid var(--rule); }
+  .panel { margin-top: 2.4rem; display: grid; grid-template-columns: 1.15fr .85fr; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .code { position: relative; border-right: 1px solid var(--rule); background: #F6F8F7; min-height: 22rem; }
+  .panel pre { position: absolute; inset: 0; margin: 0; padding: 1.3rem 1.4rem; font: 400 .8rem/1.55 var(--mono); color: var(--ink); overflow: auto; }
+  .panel pre mark { background: #FBEFD5; color: inherit; border-radius: 3px; padding: 0 .15rem; }
+  .panel pre mark.tampered { background: #F7D9D6; color: var(--bad); }
+  .checks { padding: 1.4rem 1.5rem 1.6rem; display: flex; flex-direction: column; }
+  .checks label { font-size: .9rem; color: var(--soft); }
+  .checks input { width: 100%; margin-top: .35rem; font: 500 .95rem var(--sans); padding: .6rem .7rem; border: 1px solid var(--rule); border-radius: 6px; color: var(--ink); }
+  .checks ol { list-style: none; padding: 0; margin: 1.2rem 0 0; counter-reset: c; }
+  .checks li { counter-increment: c; display: grid; grid-template-columns: 1.6rem 1fr auto; gap: .5rem; align-items: start; padding: .55rem 0; border-bottom: 1px solid #EDF1EF; font-size: .95rem; }
+  .checks li::before { content: counter(c); color: var(--soft); font-variant-numeric: tabular-nums; }
+  .checks li .st { font-weight: 600; white-space: nowrap; }
+  .checks li.pass .st { color: var(--green-2); }
+  .checks li.fail .st { color: var(--bad); }
+  .checks li.info .st { color: var(--brass); }
+  .verdict { margin-top: 1.2rem; padding: 1rem 1.1rem; border-radius: 6px; font-weight: 600; background: var(--wash); color: var(--green); }
+  .verdict.bad { background: #F7E3E1; color: var(--bad); }
+  .verdict small { display: block; font-weight: 400; color: var(--soft); margin-top: .3rem; }
+  .controls { margin-top: 1.2rem; display: flex; flex-wrap: wrap; gap: .6rem; }
+  .controls .btn { padding: .65rem 1rem; font-size: .92rem; }
+  .demo-note { margin-top: 1rem; font-size: .9rem; color: var(--soft); max-width: 48rem; }
+  @media (prefers-reduced-motion: no-preference) { .verdict { transition: background-color .25s, color .25s; } }
+
+  /* How it works */
+  .how ol.flow { list-style: none; padding: 0; margin: 2.4rem 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4rem; counter-reset: s; }
+  .how ol.flow > li { counter-increment: s; border-top: 2px solid var(--ink); padding-top: 1rem; }
+  .how ol.flow > li::before { content: counter(s); font: 600 2.2rem/1 var(--serif); color: var(--brass); display: block; margin-bottom: .6rem; }
+  .how h3 { font-size: 1.25rem; }
+  .how ol.flow p { margin-top: .5rem; color: var(--soft); }
+  .principles { margin-top: 3rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0 3rem; padding: 0; list-style: none; }
+  .principles li { padding: .8rem 0; border-bottom: 1px solid var(--rule); }
+  .principles b { font-weight: 600; }
+
+  /* Trust levels */
+  table.levels { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+  .levels th, .levels td { text-align: left; padding: .9rem 1rem .9rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .levels thead th { font-size: .9rem; color: var(--soft); font-weight: 500; border-bottom: 2px solid var(--ink); }
+  .levels td:first-child { font: 600 1.2rem/1.2 var(--serif); color: var(--green); width: 4rem; }
+
+  /* Adopt */
+  .adopt { background: var(--ink); color: #fff; }
+  .adopt .head p { color: #C3CCD5; }
+  .adopt .grid { margin-top: 2.4rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4rem; }
+  .adopt h3 { font-size: 1.3rem; color: #fff; }
+  .adopt .grid p { margin-top: .5rem; color: #C3CCD5; }
+  .adopt .grid a { color: #E6C77F; display: inline-block; margin-top: .8rem; }
+
+  /* Implementations */
+  table.impl { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+  .impl th, .impl td { text-align: left; padding: .9rem 1rem .9rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .impl thead th { font-size: .9rem; color: var(--soft); font-weight: 500; border-bottom: 2px solid var(--ink); }
+  .impl td:first-child { font-weight: 600; }
+  .impl tr.open td { color: var(--soft); font-style: italic; }
+
+  /* Governance */
+  .gov .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+  .road { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--rule); }
+  .road li { position: relative; padding: 0 0 1.4rem 1.4rem; }
+  .road li::before { content: ""; position: absolute; left: -7px; top: .45rem; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--green); }
+  .road li.now::before { background: var(--green); }
+  .road b { font-family: var(--serif); font-weight: 600; }
+  .road span { display: block; color: var(--soft); }
+
+  .final { border-top: 1px solid var(--rule); }
+  .final h2 { font-size: clamp(1.9rem, 3.6vw, 2.8rem); max-width: 22ch; }
+  .final p { margin-top: .9rem; font-size: 1.12rem; color: var(--soft); max-width: 38rem; }
+  .final .ctas { margin-top: 1.8rem; display: flex; gap: .8rem; flex-wrap: wrap; }
+
+  footer { border-top: 1px solid var(--rule); padding: 1.8rem 0 2.6rem; font-size: .9rem; color: var(--soft); }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .hero .wrap, .problem .wrap, .panel, .gov .wrap { grid-template-columns: 1fr; gap: 2.5rem; }
+    .panel { gap: 0; }
+    .code { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .how ol.flow, .adopt .grid, .principles { grid-template-columns: 1fr; }
+    header nav a.opt { display: none; }
+  }
+  @media (max-width: 560px) {
+    header nav a:not(:first-child) { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="wrap">
+    <a class="mark" href="#"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14.5" fill="none" stroke="#23574A" stroke-width="2"/><circle cx="16" cy="16" r="9" fill="none" stroke="#A77B22" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M11 16.5l3.5 3.5 6.5-7" fill="none" stroke="#23574A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Open Financial Proof</a>
+    <nav aria-label="Main">
+      <a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Specification</a>
+      <a href="#try">Try a proof</a>
+      <a class="opt" href="#implementations">Implementations</a>
+      <a class="opt" href="#governance">Governance</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <!-- Character + what they want -->
+  <section class="hero" aria-labelledby="t-hero">
+    <div class="wrap">
+      <div>
+        <p class="status">Version 0.1, public draft. Free to implement.</p>
+        <h1 id="t-hero">Prove a fact about money without sharing the money.</h1>
+        <p class="lede">Open Financial Proof is an open format for signed answers about a person's or business's finances. One question, one verifier, one purpose. Anyone can check it. No one has to hand over their transactions.</p>
+        <div class="ctas">
+          <a class="btn btn-solid" href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Read the specification</a>
+          <a class="btn btn-line" href="#try">Verify a real proof</a>
+        </div>
+      </div>
+      <svg class="roles" viewBox="0 0 470 320" role="img" aria-label="The subject asks an issuer for a proof; the issuer signs it; the subject gives it to a verifier, who checks it against the issuer's public key.">
+        <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4B5866"/></marker><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#A77B22"/></marker></defs>
+        <g font-size="14" fill="#1D2733" text-anchor="middle">
+          <rect x="10" y="40" width="150" height="70" rx="8" fill="#E8F0EC" stroke="#23574A"/><text x="85" y="70" font-weight="600">Subject</text><text x="85" y="90" font-size="12" fill="#4B5866">person or business</text>
+          <rect x="310" y="40" width="150" height="70" rx="8" fill="#fff" stroke="#23574A"/><text x="385" y="70" font-weight="600">Issuer</text><text x="385" y="90" font-size="12" fill="#4B5866">reads data, signs</text>
+          <rect x="145" y="230" width="180" height="70" rx="8" fill="#fff" stroke="#23574A"/><text x="235" y="260" font-weight="600">Verifier</text><text x="235" y="280" font-size="12" fill="#4B5866">lender, landlord, consulate</text>
+        </g>
+        <g stroke="#4B5866" stroke-width="1.5" fill="none">
+          <path d="M162 62 H306" marker-end="url(#a)"/>
+          <path d="M308 90 H166" stroke-dasharray="5 4" marker-end="url(#a)"/>
+          <path d="M85 112 C85 180 110 245 141 262" marker-end="url(#a)"/>
+          <path d="M327 262 C375 245 395 180 392 115" stroke="#A77B22" stroke-dasharray="2 4" marker-end="url(#b)"/>
+        </g>
+        <g font-size="12" fill="#4B5866" text-anchor="middle">
+          <text x="235" y="52">1. asks, with consent</text>
+          <text x="235" y="110">2. signed proof</text>
+          <text x="40" y="190" text-anchor="start">3. shares</text><text x="40" y="206" text-anchor="start">one proof</text>
+          <text x="404" y="190" text-anchor="start" fill="#A77B22">4. checks</text><text x="404" y="206" text-anchor="start" fill="#A77B22">public key</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Problem -->
+  <section class="problem" aria-labelledby="t-problem">
+    <div class="wrap">
+      <div class="story">
+        <div class="head"><h2 id="t-problem">Every check of someone's finances collects too much and proves too little.</h2></div>
+        <p style="margin-top:1.4rem">Lenders, landlords, universities and consulates ask for bank statements because there is nothing better. They receive PDFs they cannot verify, full of transactions they never needed.</p>
+        <p>The honest applicant gives up their privacy. The forger edits a balance and often gets through. The verifier ends up holding sensitive data that data-protection law makes them answer for.</p>
+        <p class="belief">Trust should not cost people their privacy, and checking it should not depend on spotting a forgery by eye.</p>
+      </div>
+      <ul class="today" aria-label="What verifiers face today">
+        <li><b>Documents that cannot be checked</b><span>A statement PDF proves nothing about who produced it. Edited amounts and parked deposits are common in loan and visa fraud.</span></li>
+        <li><b>Far more data than the question needs</b><span>To learn "can this person pay ₦300,000 rent?", a landlord receives every transaction for six months.</span></li>
+        <li><b>Every verifier builds its own checks</b><span>Without a shared format, each lender writes its own rules, and forgers simply target the weakest.</span></li>
+        <li><b>People locked out</b><span>Traders, farmers and freelancers with real income but scattered records cannot show it in any form a lender accepts.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- The live demo: the one bold thing -->
+  <section class="demo" id="try" aria-labelledby="t-try">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-try">Verify a real proof, right here.</h2>
+        <p>This is a genuine OFP proof, signed with Ed25519. Your browser runs the seven checks from §7 of the specification. Then change one claim and watch the signature fail.</p>
+      </div>
+      <div class="panel">
+        <div class="code"><pre id="json" aria-label="Signed proof" tabindex="0"></pre></div>
+        <div class="checks">
+          <label for="me">You are verifying as</label>
+          <input id="me" value="admissions.university.example" autocomplete="off" spellcheck="false">
+          <ol id="steps" aria-live="polite">
+            <li data-k="version"><span>Known OFP version</span><span class="st">…</span></li>
+            <li data-k="alg"><span>Ed25519 signature algorithm</span><span class="st">…</span></li>
+            <li data-k="sig"><span>Signature matches the canonical proof</span><span class="st">…</span></li>
+            <li data-k="time"><span>Issued in the past, not yet expired</span><span class="st">…</span></li>
+            <li data-k="aud"><span>Addressed to you</span><span class="st">…</span></li>
+            <li data-k="trust"><span>Trust level meets your minimum (L1)</span><span class="st">…</span></li>
+            <li data-k="src"><span>Source passed consistency checks</span><span class="st">…</span></li>
+          </ol>
+          <div class="verdict" id="verdict" role="status">Checking…</div>
+          <div class="controls">
+            <button class="btn btn-solid" id="tamper" type="button">Change "held" to false</button>
+            <button class="btn btn-line" id="reset" type="button">Restore the original</button>
+          </div>
+        </div>
+      </div>
+      <p class="demo-note">The issuer's public key is published at <code>/.well-known/ofp-issuer</code>. In this demo the key is embedded in the page. The proof says the subject held at least ₦900,000 every day for 28 days, gives the lowest balance only as a band, and contains no transactions.</p>
+    </div>
+  </section>
+
+  <!-- The plan / how it works -->
+  <section class="how" aria-labelledby="t-how">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-how">How a proof moves.</h2>
+        <p>Three parties, one signed object, no shared database.</p>
+      </div>
+      <ol class="flow">
+        <li><h3>The subject asks</h3><p>A person or business asks an issuer (their bank, a wallet, an aggregator or open-source software) for a proof, naming who it is for and why.</p></li>
+        <li><h3>The issuer signs</h3><p>The issuer computes the answer from data it can see, attaches a trust level and risk signals, and signs it. The answer is computed by fixed rules, never generated by an AI.</p></li>
+        <li><h3>The verifier checks</h3><p>The verifier fetches the issuer's public key, runs seven checks and decides. It never sees the underlying transactions.</p></li>
+      </ol>
+      <ul class="principles" aria-label="Principles">
+        <li><b>Minimal disclosure.</b> Yes or no, and bands. Exact figures only if the subject chooses.</li>
+        <li><b>One verifier, one purpose.</b> A proof addressed to someone else is rejected.</li>
+        <li><b>Honest risk signals.</b> Signs of borrowed or parked money are always included.</li>
+        <li><b>Deterministic claims.</b> The same data always gives the same answer.</li>
+        <li><b>Short lives.</b> Thirty days by default, ninety at most.</li>
+        <li><b>No data trade.</b> Issuers may not sell or reuse the subject's data.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="levels-sec" aria-labelledby="t-levels" style="padding-top:0">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-levels">Trust you can see on every proof.</h2>
+        <p>Verifiers set the minimum level they accept, so OFP is useful on day one with uploaded statements and grows stronger as banks join.</p>
+      </div>
+      <table class="levels">
+        <thead><tr><th scope="col">Level</th><th scope="col">Source</th><th scope="col">What the issuer vouches for</th></tr></thead>
+        <tbody>
+          <tr><td>L1</td><td>A document the subject supplied, such as a statement export</td><td>It is internally consistent: every running balance, the totals and the dates check out.</td></tr>
+          <tr><td>L2</td><td>Read live from the institution over a consented open-banking connection</td><td>The institution reported this data at that time.</td></tr>
+          <tr><td>L3</td><td>Signed by the institution itself</td><td>The bank or wallet vouches for the answer.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Call to action by audience -->
+  <section class="adopt" aria-labelledby="t-adopt">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-adopt">Adopt OFP.</h2>
+        <p>No licence fee, no membership, no permission needed.</p>
+      </div>
+      <div class="grid">
+        <div><h3>Accept proofs</h3><p>Lenders, landlords, universities, employers and consulates: ask applicants for an OFP proof instead of statements, and run the seven checks.</p><a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md#7-verification-what-every-verifier-must-do">Verification steps</a></div>
+        <div><h3>Issue proofs</h3><p>Banks, wallets, aggregators and fintechs: implement the templates, publish your issuer key, and let customers prove what they need without exporting statements.</p><a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md#5-envelope">The envelope and templates</a></div>
+        <div><h3>Review the draft</h3><p>Regulators, standards bodies, privacy and security researchers: read v0.1 and tell us what is missing before v0.2.</p><a href="https://github.com/heirmexxy/Sooto/issues">Open an issue</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="implementations" aria-labelledby="t-impl">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-impl">Implementations.</h2>
+        <p>Any implementation that follows the specification can be listed here.</p>
+      </div>
+      <table class="impl">
+        <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Issues</th><th scope="col">Licence</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://github.com/heirmexxy/Sooto">Sooto</a></td><td>Reference implementation: issuer and verifier</td><td>L1; funds_held, cashflow</td><td>MIT</td></tr>
+          <tr class="open"><td>Your implementation</td><td>Issuer, verifier or both</td><td>Open an issue to be listed</td><td>Any</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="gov" id="governance" aria-labelledby="t-gov" style="background:#F6F8F7">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="t-gov">Built to belong to no one.</h2>
+        <p>OFP starts as a draft published with its reference implementation. It moves to a neutral foundation once three independent implementations exist, so no single company controls it.</p>
+      </div>
+      <ol class="road" aria-label="Roadmap">
+        <li class="now"><b>v0.1, now</b><span>Envelope, canonical form, Ed25519 signatures, funds_held and cashflow templates, trust levels.</span></li>
+        <li><b>v0.2</b><span>Proofs as W3C Verifiable Credentials and SD-JWT, presentable through OpenID4VP and the EU Digital Identity Wallet. L2 sources and L3 co-signing.</span></li>
+        <li><b>Test suite</b><span>So any implementation can show it follows the specification.</span></li>
+        <li><b>Foundation</b><span>Once three independent implementations exist.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Success -->
+  <section class="final" aria-labelledby="t-final">
+    <div class="wrap">
+      <h2 id="t-final">A world where proving you can pay never means exposing everything you have.</h2>
+      <p>Honest people get credit, homes and visas on the strength of what is true. Verifiers check a signature, not a PDF. Forgers lose their easiest trick.</p>
+      <div class="ctas">
+        <a class="btn btn-solid" href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Read the specification</a>
+        <a class="btn btn-line" href="https://github.com/heirmexxy/Sooto/issues">Join the discussion</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Open Financial Proof is an open specification, free for anyone to implement. Sooto is its reference implementation.</p>
+    <p><a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Specification v0.1</a></p>
+  </div>
+</footer>
+
+<script>
+const PUBLIC_KEY = "MCowBQYDK2VwAyEAlZs-b4GYvATMyWGBYW3c64R4aT7tbAAf4BQcfDeOdeo";
+const ORIGINAL = {
+  "proof": {
+    "ofp": "0.1",
+    "id": "b47157b7-e2a7-4812-8731-dccdbfa2faa1",
+    "type": "funds_held",
+    "issuer": "https://issuer.example",
+    "verifier": "admissions.university.example",
+    "purpose": "Student visa financial evidence",
+    "subject": {
+      "name": "Ada Obi",
+      "name_verified": true,
+      "verified_with": "BVN",
+      "verified_by": "dojah",
+      "verified_at": "2026-11-26T05:00:00.000Z"
+    },
+    "trust_level": "L1",
+    "source": {
+      "provider": "statement",
+      "digest": "sha256:06b4a132459492f90939f0354710d2ddb9121967ecf04bac5f69984b36b8a8c1",
+      "verification": "consistent",
+      "period": {
+        "from": "2026-06-01",
+        "to": "2026-09-26"
+      }
+    },
+    "claims": {
+      "question": "Held at least 900000 NGN at the end of each of 28 consecutive days ending 2026-09-26",
+      "held": true,
+      "amount": 900000,
+      "currency": "NGN",
+      "days": 28,
+      "window": {
+        "from": "2026-08-30",
+        "to": "2026-09-26"
+      },
+      "lowest_balance_band": "500,000–1,000,000",
+      "transactions_in_window": 9,
+      "risk_signals": []
+    },
+    "issued_at": 1795669624,
+    "expires_at": 1803445624
+  },
+  "signature": "50XAkD2RICTqAYZekSlNRsO4O_Le-WE0y74QDz7UlhxvYWKiYaHeD12_1ND0FHjvvVHn88wJMwusA_F39lpsBw",
+  "key_id": "-lAkpY2PnlP-XMpG",
+  "alg": "Ed25519"
+};
+let current = structuredClone(ORIGINAL);
+
+function canonicalize(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map((x) => (x === undefined ? "null" : canonicalize(x))).join(",") + "]";
+  return "{" + Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => JSON.stringify(k) + ":" + canonicalize(v[k])).join(",") + "}";
+}
+const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+
+// Display order only: claims first so the answer is visible. The signature covers the canonical form, where keys are sorted.
+function forDisplay(c) {
+  const { ofp, type, verifier, purpose, claims, ...rest } = c.proof;
+  return { proof: { ofp, type, verifier, purpose, claims, ...rest }, signature: c.signature, key_id: c.key_id, alg: c.alg };
+}
+function render(tampered) {
+  const text = esc(JSON.stringify(forDisplay(current), null, 2));
+  const pre = document.getElementById("json");
+  pre.innerHTML = text.replace(/("held": )(true|false)/, (m, a, b) => `<mark class="${tampered ? "tampered" : ""}">${a}${b}</mark>`);
+  pre.scrollTop = 0;
+}
+function mark(k, state, text) {
+  const li = document.querySelector(`#steps li[data-k="${k}"]`);
+  li.className = state;
+  li.querySelector(".st").textContent = text;
+}
+async function check() {
+  const p = current.proof;
+  const now = Math.floor(Date.now() / 1000);
+  let ok = true;
+  const fail = (k, t) => { mark(k, "fail", t); ok = false; };
+  p.ofp === "0.1" ? mark("version", "pass", "Pass") : fail("version", "Fail");
+  current.alg === "Ed25519" ? mark("alg", "pass", "Pass") : fail("alg", "Fail");
+  try {
+    const key = await crypto.subtle.importKey("spki", b64u(PUBLIC_KEY), { name: "Ed25519" }, false, ["verify"]);
+    const good = await crypto.subtle.verify({ name: "Ed25519" }, key, b64u(current.signature), new TextEncoder().encode(canonicalize(p)));
+    good ? mark("sig", "pass", "Pass") : fail("sig", "Fail");
+  } catch (e) {
+    mark("sig", "info", "Browser can't check");
+    ok = false;
+  }
+  if (p.issued_at > now + 60) fail("time", "Fail");
+  else if (p.expires_at <= now) { mark("time", "info", "Expired sample"); ok = false; }
+  else mark("time", "pass", "Pass");
+  p.verifier === document.getElementById("me").value.trim() ? mark("aud", "pass", "Pass") : fail("aud", "Fail");
+  p.trust_level >= "L1" ? mark("trust", "pass", "Pass") : fail("trust", "Fail");
+  p.source?.verification !== "inconsistent" ? mark("src", "pass", "Pass") : fail("src", "Fail");
+  const v = document.getElementById("verdict");
+  const failed = [...document.querySelectorAll("#steps li.fail span:first-child")].map((s) => s.textContent.toLowerCase());
+  v.className = "verdict" + (ok ? "" : " bad");
+  v.innerHTML = ok
+    ? `Valid. Held at least ₦900,000 for 28 days: ${p.claims.held ? "yes" : "no"}.<small>Lowest balance band ${p.claims.lowest_balance_band}. Risk signals: ${p.claims.risk_signals.length ? p.claims.risk_signals.join(", ") : "none"}.</small>`
+    : `Rejected.<small>${failed.length ? "Failed: " + failed.join("; ") + "." : "This browser cannot check Ed25519 signatures; use a current Chrome, Edge, Firefox or Safari."}</small>`;
+}
+document.getElementById("tamper").addEventListener("click", () => { current = structuredClone(ORIGINAL); current.proof.claims.held = false; render(true); check(); });
+document.getElementById("reset").addEventListener("click", () => { current = structuredClone(ORIGINAL); render(false); check(); });
+document.getElementById("me").addEventListener("input", check);
+if (location.hash === "#tampered") { current.proof.claims.held = false; render(true); document.getElementById("try").scrollIntoView(); } else render(false);
+check();
+</script>
+</body>
+</html>

@@ -39,11 +39,15 @@ Verifiers check proofs against the issuer key at `/.well-known/ofp-issuer`.
 
 **Identity providers:** set `DOJAH_APP_ID` and `DOJAH_SECRET_KEY` (optionally `DOJAH_BASE_URL=https://sandbox.dojah.io` for testing), or `PREMBLY_APP_ID` and `PREMBLY_API_KEY`.
 
-## Landing page
+## Websites
 
-`site/index.html` is the product's landing page: one self-contained file, written to the StoryBrand (SB7) framework. Host it anywhere static, such as GitHub Pages or Netlify.
+Two separate sites, each a single self-contained file you can host anywhere static (GitHub Pages, Netlify, Cloudflare Pages):
+
+- `site/index.html`: **Sooto**, the product, for people and businesses who need to prove their money. Written to the StoryBrand (SB7) framework.
+- `site/ofp/index.html`: **Open Financial Proof**, the standard, for verifiers, issuers and regulators. Deliberately neutral, with no Sooto branding beyond its listing as the reference implementation. It includes a live verifier that checks a real signed proof in the browser (Web Crypto Ed25519). Intended for its own domain, so the standard stands apart from any one company.
 
 ![Sooto landing page](docs/landing-hero.png)
+![Open Financial Proof site](docs/ofp-site-hero.png)
 
 ## Run it locally
 
