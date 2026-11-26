@@ -38,8 +38,11 @@ export interface Proof {
   verifier: string;
   /** Why it was issued, e.g. "UK student visa application". Binds the proof to one use. */
   purpose: string;
-  /** Name the subject gave. Marked as declared: at L1 Sooto has not checked it against an ID. */
-  subject?: { declared_name?: string; name_verified: boolean };
+  /**
+   * Who the proof is about. Either a name the subject declared (name_verified false), or a name from a
+   * government identity record (BVN or NIN) checked through a KYC provider (name_verified true).
+   */
+  subject?: { declared_name?: string; name?: string; name_verified: boolean; verified_with?: string; verified_by?: string; verified_at?: string };
   trust_level: TrustLevel;
   source: ProofSource;
   claims: Record<string, unknown>;

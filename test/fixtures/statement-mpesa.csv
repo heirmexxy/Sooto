@@ -1,0 +1,12 @@
+M-PESA STATEMENT
+Customer Name:,WANJIKU KAMAU,,,,,
+Mobile Number:,2547XXXXX123,,,,,
+Statement Period:,01 Aug 2026 - 31 Aug 2026,,,,,
+DETAILED STATEMENT,,,,,,
+Receipt No.,Completion Time,Details,Transaction Status,Paid In,Withdrawn,Balance
+TH91K2L3M4,2026-08-30 18:22:05,Customer Transfer to 2547XXXXX456 - JAMES OTIENO,Completed,,-1500.00,8210.00
+TH91K2L3M3,2026-08-30 18:22:05,Customer Transfer Charge,Completed,,-23.00,9710.00
+TH81J2K3L9,2026-08-28 09:10:44,Pay Bill to 247247 - Equity Paybill Account Acc. 0123,Failed,,-2000.00,9733.00
+TH81J2K3L8,2026-08-27 14:03:11,Funds received from 2547XXXXX789 - MARY NJERI,Completed,5000.00,,9733.00
+TH71H2J3K7,2026-08-15 12:45:00,Merchant Payment to 5123456 - NAIVAS SUPERMARKET,Completed,,-2267.00,4733.00
+TH61G2H3J6,2026-08-05 08:00:12,Business Payment from 600123 - ACME LTD Salary via API,Completed,7000.00,,7000.00

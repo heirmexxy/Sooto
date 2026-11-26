@@ -4,7 +4,7 @@
 
 *Sooto* comes from the Yoruba *òótọ́*, "truth".
 
-> **Status: v0.2, early.** Statement verification (CSV and PDF, including password-protected PDFs), OFP proofs, the scam shield and the injection guard work today from any statement export. Live African bank connections (Mono, Stitch, the NIBSS open-banking registry) are next. European banks already work through Enable Banking, as in the code Sooto started from.
+> **Status: v0.3, early.** Statement verification (bank CSV and PDF including password-protected PDFs, M-Pesa, MTN MoMo), BVN/NIN identity checks, OFP proofs, the scam shield and the injection guard work today. Live African bank connections (Mono, Stitch, the NIBSS open-banking registry) are next. European banks already work through Enable Banking, as in the code Sooto started from.
 
 ## The problem
 
@@ -22,6 +22,8 @@ Sooto makes the record **visible** to its owner, **provable** to others without 
 |---|---|---|
 | **Verify** | `verify_statement` | Loads any bank or wallet statement (CSV, text or PDF, including password-protected PDFs) and checks it: running balance, totals, dates, duplicates, padding (large late deposits, money in and straight out), and narrations that try to instruct an AI |
 | | `request_statement_upload` | A one-time link where the owner uploads a statement PDF and its password from their browser, so neither passes through the chat (or costs the assistant tokens) |
+| | `verify_identity` | Checks the owner's own BVN or NIN with a licensed KYC provider (Dojah or Prembly) so proofs carry a verified name and statements are matched to it. Keeps the names only, never the number |
+| | `identity_status`, `forget_identity` | What is verified, and deleting it |
 | | `list_statements` | Statements loaded in the last 24 hours (held in memory only) |
 | | `cashflow_profile` | Monthly in/out, average and median inflow, how steady it is, payer count and concentration, balance range |
 | **Prove** | `issue_proof` | A signed **Open Financial Proof** for one named verifier and purpose. `funds_held` covers visa proof of funds and deposits; `cashflow` covers lending, tenancy and employment. Gives bands, not transactions, and always includes risk signals |
@@ -32,6 +34,16 @@ Sooto makes the record **visible** to its owner, **provable** to others without 
 | **Connect** | `list_banks`, `start_consent`, `get_transactions`, … | Live read-only bank connections (Enable Banking/PSD2 today; African providers next) |
 
 Verifiers check proofs against the issuer key at `/.well-known/ofp-issuer`.
+
+**Formats read:** bank statements in CSV or PDF (column headers in the common Nigerian forms, wrapped narrations, repeated page headers, RC4 and AES password protection), M-Pesa full statements (failed rows left out), and MTN MoMo exports (fees and E-levy added, direction taken from before/after balances or the running balance).
+
+**Identity providers:** set `DOJAH_APP_ID` and `DOJAH_SECRET_KEY` (optionally `DOJAH_BASE_URL=https://sandbox.dojah.io` for testing), or `PREMBLY_APP_ID` and `PREMBLY_API_KEY`.
+
+## Landing page
+
+`site/index.html` is the product's landing page: one self-contained file, written to the StoryBrand (SB7) framework. Host it anywhere static, such as GitHub Pages or Netlify.
+
+![Sooto landing page](docs/landing-hero.png)
 
 ## Run it locally
 
@@ -61,11 +73,13 @@ European bank connections are optional. Set `EB_APP_ID` and `EB_PRIVATE_KEY` for
 ```
 src/sooto-tools.ts      the verify / prove / protect MCP tools
 src/guard/injection.ts  cleans and flags third-party text before an AI sees it
-src/providers/          provider interface, statement importer, dependency-free PDF reader
+src/identity/           BVN/NIN verification (Dojah, Prembly) and name matching
+src/providers/          provider interface, statement importer (banks, M-Pesa, MoMo), dependency-free PDF reader
                         (pdf.ts: text, fonts, RC4/AES decryption; pdf-table.ts: rebuilds the table)
 src/verify/statement.ts statement consistency and padding checks
 src/ofp/                Open Financial Proof: metrics, templates, signing and verification
 src/shield/scam.ts      message and payee risk checks
+site/index.html         landing page
 src/tools.ts            bank-connection tools (inherited, Enable Banking)
 src/attestation.ts      issuer key and IBAN-ownership attestation (inherited)
 docs/ofp/SPEC.md        the Open Financial Proof specification, v0.1 draft
@@ -75,7 +89,7 @@ test/                   node:test suites; run with npm test
 ## Roadmap
 
 1. **Connect:** provider adapters for Mono and Stitch; NIBSS open banking once licensed; SMS bank-alert ingestion through a companion app; mobile-money statement formats (M-Pesa, MTN MoMo); OCR for scanned statements.
-2. **Prove:** BVN/NIN identity linking; OFP v0.2 as W3C Verifiable Credentials / SD-JWT with EU Digital Identity Wallet compatibility; L3 bank co-signing; QR proofs that can be checked offline; a verifier portal.
+2. **Prove:** OFP v0.2 as W3C Verifiable Credentials / SD-JWT with EU Digital Identity Wallet compatibility; L3 bank co-signing; QR proofs that can be checked offline; a verifier portal.
 3. **Protect:** real-time watches for account drains and money-mule patterns; a shared scam-account signal network; WhatsApp and USSD channels.
 4. **Secure:** consent and access ledger; "know your agent" identity and scoped mandates; the OFP security profile and conformance tests.
 5. **Optimise:** optional [WasteZero](https://github.com/heirmexxy/WasteZero) integration. Sooto's own model calls are routed through WasteZero for cost per verification, and customers can opt into it. Metadata-only logging, never prompts. WasteZero is not part of the OFP standard.

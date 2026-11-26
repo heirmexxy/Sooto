@@ -4,7 +4,7 @@ import { registerPrompts } from "./prompts.ts";
 import { attestationEnabled } from "./attestation.ts";
 import { registerSootoTools } from "./sooto-tools.ts";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
 /** The MCP server for one request. `attestOnly` is for a token granted bank:attest alone: it gets attest_account and nothing else. */
 export function createServer(opts: { attestOnly?: boolean } = {}): McpServer {

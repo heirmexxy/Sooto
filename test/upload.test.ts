@@ -31,3 +31,24 @@ test("loadStatement reads CSV text and PDFs alike", () => {
   assert.equal(a.rows, b.rows);
   assert.equal(b.format, "pdf");
 });
+
+test("a verified identity must match the statement's account holder before a proof names it", async () => {
+  const { held, proofSubject } = await import("../src/sooto-tools.ts");
+  const { verifyIdentity, dojah, forgetIdentity } = await import("../src/identity/verify.ts");
+  const loaded = loadStatement({ pdf: fixture("statement-ng-report.pdf") });
+  assert.equal(loaded.holder_name, "ADA OBI ENTERPRISES");
+  const s = held(loaded.statement_id as string);
+
+  const asPerson = (first: string, last: string) =>
+    dojah({ appId: "a", secretKey: "s", fetch: (async () => new Response(JSON.stringify({ entity: { first_name: first, last_name: last } }), { status: 200 })) as unknown as typeof fetch });
+
+  await verifyIdentity({ id_type: "bvn", number: "22222222222", consent: true }, asPerson("ADA", "OBI"));
+  const ok = proofSubject(s, undefined, true);
+  assert.equal((ok.subject as { name_verified: boolean }).name_verified, true);
+  assert.equal((ok.holder as { matches_verified_name: string }).matches_verified_name, "exact");
+
+  await verifyIdentity({ id_type: "bvn", number: "22222222222", consent: true }, asPerson("KEMI", "BELLO"));
+  assert.throws(() => proofSubject(s, undefined, true), /does not match the verified identity/);
+  forgetIdentity();
+  assert.equal((proofSubject(s, "Ada Obi", true).subject as { name_verified: boolean }).name_verified, false);
+});

@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sooto: prove what your money says</title>
+<meta name="description" content="Sooto turns your bank and mobile-money statements into a signed proof a lender, landlord or embassy can check in seconds. They see the answer they need, nothing else.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700;800&family=Fira+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo: #16204A;      /* adire indigo: text, hero ground */
+    --indigo-2: #2C3E8C;    /* links, secondary ink */
+    --dye: #DCE3F5;         /* pale indigo wash */
+    --paper: #F6F7F9;       /* cool paper */
+    --white: #FFFFFF;
+    --ok: #1F7A4D;          /* verified */
+    --bad: #B3261E;         /* broken row */
+    --rule: #C9D0E4;
+    --muted: #4A5378;
+    --display: "Bitter", "Rockwell", Georgia, serif;
+    --body: "Fira Sans", "Segoe UI", system-ui, sans-serif;
+    --measure: 36rem;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--indigo); font: 400 1.0625rem/1.6 var(--body); font-variant-numeric: lining-nums; }
+  a { color: var(--indigo-2); text-underline-offset: .18em; }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--ok); outline-offset: 3px; border-radius: 4px; }
+  .wrap { width: min(72rem, 100% - 3rem); margin-inline: auto; }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .skip { position: absolute; left: -999px; } .skip:focus { left: 1rem; top: 1rem; background: var(--white); padding: .5rem 1rem; z-index: 9; }
+
+  /* Header */
+  .top { background: var(--indigo); color: var(--white); }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1.1rem; }
+  .mark { display: flex; align-items: baseline; gap: .6rem; color: inherit; text-decoration: none; }
+  .mark b { font: 800 1.5rem/1 var(--display); letter-spacing: -0.02em; }
+  .mark span { font-size: .9rem; color: #B9C3E6; }
+  .top nav { display: flex; gap: 1.6rem; align-items: center; font-size: .95rem; }
+  .top nav a { color: #E3E8F8; text-decoration: none; }
+  .top nav a:hover { text-decoration: underline; }
+  .btn { display: inline-block; font: 600 1rem/1 var(--body); padding: .9rem 1.35rem; border-radius: 999px; text-decoration: none; border: 2px solid transparent; }
+  .btn-light { background: var(--white); color: var(--indigo); }
+  .btn-solid { background: var(--indigo); color: var(--white); }
+  .btn-line { border-color: currentColor; color: inherit; }
+  .top .btn { padding: .65rem 1.1rem; font-size: .95rem; }
+  .top nav a.btn-light { color: var(--indigo); }
+  .top nav a.btn-light:hover { text-decoration: none; }
+
+  /* Hero */
+  .hero { background: var(--indigo); color: var(--white); padding: 4.5rem 0 6rem; overflow: hidden; }
+  .hero .wrap { display: grid; grid-template-columns: 1.05fr .95fr; gap: 4rem; align-items: center; }
+  .hero h1 { font-size: clamp(2.6rem, 5.4vw, 4.4rem); font-weight: 800; max-width: 12ch; }
+  .hero .lede { margin-top: 1.5rem; font-size: 1.25rem; line-height: 1.55; color: #DCE2F6; max-width: 31rem; }
+  .hero .ctas { margin-top: 2.2rem; display: flex; flex-wrap: wrap; gap: .9rem; }
+  .hero .note { margin-top: 1.4rem; font-size: .95rem; color: #AFB9DF; max-width: 30rem; }
+
+  /* The proof slip: the one bold thing on the page */
+  .slip-wrap { position: relative; justify-self: center; width: min(26rem, 100%); }
+  .slip { position: relative; background: var(--white); color: var(--indigo); border-radius: 6px; box-shadow: 0 30px 60px -20px rgba(4, 8, 30, .55), 0 2px 0 rgba(255,255,255,.4) inset; transform: rotate(-1.6deg); }
+  .slip::after { /* perforated tear edge */
+    content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 18px;
+    background: radial-gradient(circle at 9px 0, transparent 7px, var(--white) 7.5px) 0 0 / 18px 18px repeat-x;
+  }
+  .band { height: 3.4rem; border-radius: 6px 6px 0 0; background-color: var(--indigo-2); background-image: var(--adire); background-size: 56px 56px; }
+  .slip-body { padding: 1.4rem 1.6rem 1.9rem; }
+  .slip-kind { display: flex; justify-content: space-between; align-items: baseline; font-size: .85rem; color: var(--muted); }
+  .slip-kind strong { font: 700 1rem/1.2 var(--display); color: var(--indigo); }
+  .question { margin-top: 1rem; font-size: 1rem; line-height: 1.45; }
+  .answer { display: flex; align-items: center; gap: .7rem; margin-top: .7rem; font: 800 3.2rem/1 var(--display); color: var(--ok); }
+  .answer svg { width: 2.4rem; height: 2.4rem; }
+  .facts { margin: 1.2rem 0 0; display: grid; grid-template-columns: auto 1fr; gap: .45rem 1rem; font-size: .92rem; border-top: 1px dashed var(--rule); padding-top: 1rem; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .facts .good { color: var(--ok); }
+  .slip-foot { margin-top: 1.2rem; font-size: .8rem; color: var(--muted); padding-right: 6rem; }
+  .seal { position: absolute; right: -1.2rem; bottom: 1.1rem; width: 7.2rem; height: 7.2rem; color: var(--ok); }
+  .slip-cap { margin-top: 1.8rem; font-size: .85rem; color: #AFB9DF; text-align: center; }
+  @media (prefers-reduced-motion: no-preference) {
+    .slip { animation: settle .9s cubic-bezier(.2,.8,.2,1) .15s both; }
+    .seal { animation: stamp .5s cubic-bezier(.3,1.6,.5,1) 1s both; }
+    @keyframes settle { from { opacity: 0; transform: translateY(28px) rotate(3deg); } to { opacity: 1; transform: rotate(-1.6deg); } }
+    @keyframes stamp { from { opacity: 0; transform: scale(1.6) rotate(-20deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+  }
+
+  /* Adire border between hero and story */
+  .adire-edge { height: 1.6rem; background-color: var(--indigo); background-image: var(--adire); background-size: 26px 26px; opacity: .97; }
+
+  section { padding: 5.5rem 0; }
+  .section-head { max-width: var(--measure); }
+  .section-head h2 { font-size: clamp(2rem, 3.6vw, 2.8rem); font-weight: 800; }
+  .section-head p { margin-top: 1rem; font-size: 1.15rem; color: var(--muted); }
+
+  /* Problem */
+  .problem .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+  .problem .story p + p { margin-top: 1.1rem; }
+  .problem .story p { font-size: 1.15rem; max-width: var(--measure); }
+  .problem .story p.belief { font-family: var(--display); font-weight: 700; font-size: 1.4rem; line-height: 1.35; color: var(--indigo); margin-top: 1.8rem; }
+  .ledger { background: var(--white); border: 1px solid var(--rule); border-radius: 4px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .ledger table { width: 100%; border-collapse: collapse; }
+  .ledger caption { text-align: left; padding: .9rem 1rem; font-weight: 600; border-bottom: 1px solid var(--rule); }
+  .ledger th, .ledger td { padding: .55rem 1rem; text-align: right; border-bottom: 1px solid #E6E9F2; }
+  .ledger th:first-child, .ledger td:first-child { text-align: left; }
+  .ledger th { font-weight: 500; color: var(--muted); }
+  .ledger tr.broken td { color: var(--bad); background: #FBEDEC; }
+  .ledger tr.broken td.amt { text-decoration: line-through; text-decoration-thickness: 2px; }
+  .ledger .why { padding: .8rem 1rem; color: var(--bad); font-size: .88rem; }
+  .stat { margin-top: 1.6rem; font-size: .95rem; color: var(--muted); max-width: 30rem; }
+
+  /* Guide */
+  .guide { background: var(--white); border-block: 1px solid var(--rule); }
+  .guide .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+  .guide .empathy p { font-size: 1.15rem; max-width: var(--measure); }
+  .guide .empathy p + p { margin-top: 1rem; }
+  .proofs { list-style: none; padding: 0; margin: 0; }
+  .proofs li { display: grid; grid-template-columns: 1.6rem 1fr; gap: .7rem; padding: .9rem 0; border-bottom: 1px solid #E6E9F2; }
+  .proofs li:last-child { border-bottom: 0; }
+  .proofs svg { width: 1.3rem; height: 1.3rem; color: var(--ok); margin-top: .2rem; }
+  .proofs b { font-weight: 600; }
+
+  /* Plan */
+  .plan ol { list-style: none; padding: 0; margin: 3rem 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; counter-reset: step; }
+  .plan ol > li { counter-increment: step; border-top: 3px solid var(--indigo); padding-top: 1.2rem; }
+  .plan ol > li::before { content: counter(step); font: 800 2.6rem/1 var(--display); color: var(--indigo-2); display: block; margin-bottom: .8rem; }
+  .plan h3 { font-size: 1.35rem; }
+  .plan ol > li p { margin-top: .6rem; color: var(--muted); }
+  .promise { margin-top: 3.5rem; background: var(--dye); border-radius: 4px; padding: 1.6rem 1.8rem; display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: center; }
+  .promise h3 { font-size: 1.2rem; }
+  .promise ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .5rem 2rem; }
+  .promise li::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+  .plan .ctas { margin-top: 2.6rem; display: flex; flex-wrap: wrap; gap: .9rem; }
+
+  /* Stakes: a ledger of two outcomes */
+  .stakes table { width: 100%; margin-top: 2.6rem; border-collapse: collapse; font-size: 1.05rem; }
+  .stakes th { text-align: left; font: 700 1.15rem/1.3 var(--display); padding: 0 1.2rem 1rem 0; border-bottom: 2px solid var(--indigo); }
+  .stakes td { padding: 1.1rem 1.2rem 1.1rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .stakes td:first-child { font-weight: 600; width: 14%; }
+  .stakes td.without { width: 43%; color: var(--muted); }
+  .stakes td.with { color: var(--indigo); font-weight: 500; }
+  .stakes td.without::before { content: "✕"; color: var(--bad); font-weight: 700; margin-right: .55rem; }
+  .stakes td.with::before { content: "✓"; color: var(--ok); font-weight: 700; margin-right: .55rem; }
+  .transform { margin-top: 3rem; font: 800 clamp(1.8rem, 3.4vw, 2.6rem)/1.15 var(--display); max-width: 20ch; }
+
+  /* Verifiers */
+  .verifiers { background: var(--indigo); color: var(--white); }
+  .verifiers .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+  .verifiers .section-head p { color: #C9D1F0; }
+  .verifiers pre { margin: 0; background: #0F1736; border: 1px solid #2E3B73; border-radius: 6px; padding: 1.3rem 1.4rem; font: 400 .88rem/1.6 "DejaVu Sans Mono", ui-monospace, Menlo, monospace; color: #DCE3F5; overflow-x: auto; }
+  .verifiers pre .k { color: #9FB2F2; } .verifiers pre .g { color: #7FD6A8; }
+  .verifiers .ctas { margin-top: 2rem; display: flex; gap: .9rem; flex-wrap: wrap; }
+
+  /* Final call */
+  .final { text-align: left; }
+  .final h2 { font-size: clamp(2.2rem, 4.4vw, 3.4rem); font-weight: 800; max-width: 16ch; }
+  .final p { margin-top: 1rem; font-size: 1.2rem; color: var(--muted); max-width: var(--measure); }
+  .final .ctas { margin-top: 2rem; display: flex; gap: .9rem; flex-wrap: wrap; }
+
+  footer { border-top: 1px solid var(--rule); padding: 2rem 0 3rem; font-size: .92rem; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
+  footer nav { display: flex; gap: 1.4rem; }
+
+  @media (max-width: 900px) {
+    .hero .wrap, .problem .wrap, .guide .wrap, .verifiers .wrap { grid-template-columns: 1fr; gap: 3rem; }
+    .plan ol { grid-template-columns: 1fr; }
+    .promise { grid-template-columns: 1fr; }
+    .top nav a:not(.btn) { display: none; }
+    .stakes td:first-child { width: auto; }
+    .seal { right: -.4rem; }
+  }
+  @media (max-width: 560px) {
+    .stakes table, .stakes tbody, .stakes tr, .stakes td { display: block; width: 100% !important; }
+    .stakes thead { display: none; }
+    .stakes td { border: 0; padding: .3rem 0; }
+    .stakes tr { border-bottom: 1px solid var(--rule); padding: 1rem 0; }
+    .stakes td.without::before { content: "✕ Without proof: "; }
+    .stakes td.with::before { content: "✓ With Sooto: "; }
+  }
+</style>
+<style>
+  /* Adire eleko-style motif: circles, dots and resist lines, drawn as an SVG tile. */
+  :root {
+    --adire: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23DCE3F5' stroke-opacity='.55' stroke-width='1.6'%3E%3Ccircle cx='14' cy='14' r='9'/%3E%3Ccircle cx='14' cy='14' r='4.5'/%3E%3Ccircle cx='42' cy='42' r='9'/%3E%3Ccircle cx='42' cy='42' r='4.5'/%3E%3Cpath d='M32 8h16M32 14h16M32 20h16M8 32v16M14 32v16M20 32v16'/%3E%3C/g%3E%3Cg fill='%23DCE3F5' fill-opacity='.7'%3E%3Ccircle cx='14' cy='14' r='1.4'/%3E%3Ccircle cx='42' cy='42' r='1.4'/%3E%3Ccircle cx='28' cy='28' r='1.8'/%3E%3Ccircle cx='0' cy='28' r='1.8'/%3E%3Ccircle cx='28' cy='0' r='1.8'/%3E%3C/g%3E%3C/svg%3E");
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#"><b>Sooto</b><span>from òótọ́, truth</span></a>
+    <nav aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#verifiers">For lenders</a>
+      <a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">The standard</a>
+      <a class="btn btn-light" href="https://github.com/heirmexxy/Sooto#run-it-locally">Get started free</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <!-- 1. A character who wants something -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div>
+        <h1 id="hero-title">Prove what your money says.</h1>
+        <p class="lede">Sooto turns the bank and mobile-money statements you already have into a signed proof that a lender, landlord or embassy can check in seconds. They see the answer they need. Nothing else.</p>
+        <div class="ctas">
+          <a class="btn btn-light" href="https://github.com/heirmexxy/Sooto#run-it-locally">Get started free</a>
+          <a class="btn btn-line" href="#how">See how it works</a>
+        </div>
+        <p class="note">Reads PDF and CSV statements from banks and wallets, M-Pesa and MTN MoMo, including password-protected PDFs. Use it on its own or from your AI assistant.</p>
+      </div>
+
+      <div class="slip-wrap">
+        <figure class="slip" aria-label="Example Open Financial Proof">
+          <div class="band" aria-hidden="true"></div>
+          <div class="slip-body">
+            <div class="slip-kind"><strong>Proof of funds</strong><span>Open Financial Proof</span></div>
+            <p class="question">Held at least ₦3,000,000 at the end of every day for 28 days in a row, ending 26 September 2026?</p>
+            <p class="answer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Yes</p>
+            <dl class="facts">
+              <dt>For</dt><dd>University of Leeds admissions</dd>
+              <dt>Name</dt><dd>Ada Obi, verified with BVN</dd>
+              <dt>Statement</dt><dd class="good">All 37 balances add up</dd>
+              <dt>Risk signals</dt><dd class="good">None found</dd>
+              <dt>Valid until</dt><dd>26 October 2026</dd>
+            </dl>
+            <p class="slip-foot">Transactions are not included. The university checks the signature against Sooto's public key.</p>
+          </div>
+          <svg class="seal" viewBox="0 0 120 120" aria-hidden="true">
+            <defs><path id="ring" d="M60 60 m-44 0 a44 44 0 1 1 88 0 a44 44 0 1 1 -88 0"/></defs>
+            <circle cx="60" cy="60" r="57" fill="#fff" stroke="currentColor" stroke-width="2.5"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3"/>
+            <circle cx="60" cy="60" r="30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text font-family="Fira Sans, sans-serif" font-size="10.5" font-weight="600" letter-spacing="1.2" fill="currentColor"><textPath href="#ring">signed by sooto ✦ open financial proof ✦</textPath></text>
+            <path d="M47 61l9 9 17-19" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </figure>
+        <p class="slip-cap">What a verifier receives, instead of 40 pages of statements.</p>
+      </div>
+    </div>
+  </section>
+  <div class="adire-edge" aria-hidden="true"></div>
+
+  <!-- 2. Has a problem: external, internal, philosophical -->
+  <section class="problem" aria-labelledby="problem-title">
+    <div class="wrap">
+      <div class="story">
+        <div class="section-head"><h2 id="problem-title">Real money. Nothing anyone will believe.</h2></div>
+        <p style="margin-top:1.6rem">Your income moves through two banks, a wallet, M-Pesa or MoMo, and cash. No lender sees all of it, so the answer is no, or a rate that charges you for being invisible.</p>
+        <p>So you print months of statements, hand a stranger every transaction you have ever made, and still wait to be believed.</p>
+        <p class="belief">Honest people should not have to expose their whole lives to be trusted, while forged statements get waved through.</p>
+      </div>
+      <div>
+        <div class="ledger" role="figure" aria-label="A statement with one edited row">
+          <table>
+            <caption>The statement a lender receives</caption>
+            <thead><tr><th scope="col">Date</th><th scope="col">Credit</th><th scope="col">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>03 Aug</td><td>42,000.00</td><td>1,059,100.00</td></tr>
+              <tr><td>17 Aug</td><td>35,000.00</td><td>1,094,100.00</td></tr>
+              <tr class="broken"><td>25 Aug</td><td class="amt">950,000.00</td><td>1,544,100.00</td></tr>
+              <tr><td>03 Sep</td><td>28,000.00</td><td>1,572,100.00</td></tr>
+            </tbody>
+          </table>
+          <p class="why">Someone changed ₦450,000 to ₦950,000. The balance beside it no longer adds up. Most people reading a PDF never notice.</p>
+        </div>
+        <p class="stat">Edited statements and scams make every lender suspicious of everyone. Social engineering made up 47% of digital payment fraud by volume in Nigeria in 2025, according to NIBSS.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Meets a guide: empathy and authority -->
+  <section class="guide" aria-labelledby="guide-title">
+    <div class="wrap">
+      <div class="empathy">
+        <div class="section-head"><h2 id="guide-title">Built for the people the system cannot see.</h2></div>
+        <p style="margin-top:1.6rem">Sooto is built in Nigeria, for traders, farmers, founders, freelancers and students whose real business never shows up where a lender looks.</p>
+        <p>We think proving your money should take one honest answer, not your whole financial history. So Sooto checks the statement the way an auditor would, and shares only what you choose.</p>
+      </div>
+      <ul class="proofs" aria-label="Why you can rely on Sooto">
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>An open standard.</b> Proofs follow Open Financial Proof, a specification anyone can implement and check, free.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Every balance checked.</b> Each line is added to the one before it, so edited amounts, inserted rows and parked money stand out.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Reads what banks actually send.</b> PDF and CSV statements, password-protected PDFs, M-Pesa and MTN MoMo.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Verified names.</b> Link your BVN or NIN through a licensed KYC provider. Sooto keeps the name, never the number.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.5 12.5l3.5 3.5 7.5-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Open source.</b> The code is public under the MIT licence, so anyone can see exactly what it does.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4. Who gives them a plan -->
+  <section class="plan" id="how" aria-labelledby="plan-title">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="plan-title">Three steps to a proof anyone can check.</h2>
+        <p>Do it yourself in a few minutes, or ask your AI assistant to do it for you.</p>
+      </div>
+      <ol>
+        <li><h3>Give Sooto your statement</h3><p>Upload the PDF or CSV your bank or wallet already gives you, password and all. It goes straight from your browser, never through a chat.</p></li>
+        <li><h3>Sooto checks every line</h3><p>Balances are added up, edits and borrowed money are flagged, and scam text in narrations is ignored. Add your BVN to put a verified name on it.</p></li>
+        <li><h3>Send a proof, not your statement</h3><p>Choose who it is for and why. They get a signed answer that expires, and can check it in one call.</p></li>
+      </ol>
+      <div class="promise">
+        <h3>Our promise</h3>
+        <ul>
+          <li>You decide who sees each proof</li>
+          <li>Statements are never stored</li>
+          <li>Sooto cannot move your money</li>
+          <li>Your data is never sold</li>
+        </ul>
+      </div>
+      <!-- 5. And calls them to action -->
+      <div class="ctas">
+        <a class="btn btn-solid" href="https://github.com/heirmexxy/Sooto#run-it-locally">Get started free</a>
+        <a class="btn btn-line" href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Read the Open Financial Proof standard</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 and 7. That helps them avoid failure, and ends in success -->
+  <section class="stakes" aria-labelledby="stakes-title">
+    <div class="wrap">
+      <div class="section-head"><h2 id="stakes-title">What changes when your money can speak for itself.</h2></div>
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">Without proof</th><th scope="col">With Sooto</th></tr></thead>
+        <tbody>
+          <tr><td>A loan</td><td class="without">Turned down because the lender cannot see your sales.</td><td class="with">Approved on the cash flow you really have.</td></tr>
+          <tr><td>A visa</td><td class="without">Refused, or banned, over a statement an agent "fixed".</td><td class="with">A proof of funds the officer can check, with nothing hidden.</td></tr>
+          <tr><td>A lease</td><td class="without">Six months of statements handed to a stranger.</td><td class="with">One answer: income is at least three times the rent.</td></tr>
+          <tr><td>A scam</td><td class="without">₦50,000 sent back for a "wrong transfer" that never arrived.</td><td class="with">A warning before you send, in plain words.</td></tr>
+        </tbody>
+      </table>
+      <p class="transform">From invisible to approved.</p>
+    </div>
+  </section>
+
+  <section class="verifiers" id="verifiers" aria-labelledby="verifiers-title">
+    <div class="wrap">
+      <div>
+        <div class="section-head">
+          <h2 id="verifiers-title">For lenders, landlords, universities and employers.</h2>
+          <p>Stop reading PDFs that might be fake. Ask applicants for an Open Financial Proof and check the signature, the expiry and the answer in one call. Pay only for what you verify.</p>
+        </div>
+        <div class="ctas">
+          <a class="btn btn-light" href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md#7-verification-what-every-verifier-must-do">See how verification works</a>
+        </div>
+      </div>
+<pre aria-label="Example verification result"><span class="k">verify_proof</span>(proof)
+
+{
+  <span class="k">"valid"</span>: <span class="g">true</span>,
+  <span class="k">"type"</span>: "funds_held",
+  <span class="k">"verifier"</span>: "University of Leeds admissions",
+  <span class="k">"trust_level"</span>: "L1",
+  <span class="k">"claims"</span>: {
+    <span class="k">"held"</span>: <span class="g">true</span>,
+    <span class="k">"days"</span>: 28,
+    <span class="k">"lowest_balance_band"</span>: "2,500,000–5,000,000",
+    <span class="k">"risk_signals"</span>: []
+  }
+}</pre>
+    </div>
+  </section>
+
+  <section class="final" aria-labelledby="final-title">
+    <div class="wrap">
+      <h2 id="final-title">Your money already tells the truth. Let it speak.</h2>
+      <p>Free and open source. Start with one statement today.</p>
+      <div class="ctas">
+        <a class="btn btn-solid" href="https://github.com/heirmexxy/Sooto#run-it-locally">Get started free</a>
+        <a class="btn btn-line" href="https://github.com/heirmexxy/Sooto">View the code on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Sooto takes its name from the Yoruba word òótọ́, meaning truth. Read-only by design. MIT licensed.</p>
+    <nav aria-label="Footer">
+      <a href="https://github.com/heirmexxy/Sooto">GitHub</a>
+      <a href="https://github.com/heirmexxy/Sooto/blob/main/docs/ofp/SPEC.md">Open Financial Proof</a>
+      <a href="https://github.com/heirmexxy/Sooto/blob/main/LICENSE">Licence</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

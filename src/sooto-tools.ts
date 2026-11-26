@@ -17,9 +17,11 @@ import { readPdfStatement } from "./providers/pdf-table.ts";
 import { PdfError } from "./providers/pdf.ts";
 import { verifyStatement, type StatementVerification } from "./verify/statement.ts";
 import { cashflowProfile } from "./ofp/metrics.ts";
-import { digest, newProof, signProof, verifyProof, MAX_TTL_DAYS, type SignedProof } from "./ofp/proof.ts";
+import { digest, newProof, signProof, verifyProof, MAX_TTL_DAYS, type Proof, type SignedProof } from "./ofp/proof.ts";
 import { cashflowClaims, fundsHeldClaims } from "./ofp/templates.ts";
 import { assessMessage, assessPayee } from "./shield/scam.ts";
+import { holderNameFrom, matchNames, type NameMatchResult } from "./identity/names.ts";
+import { configuredProvider, forgetIdentity, IdentityError, verifiedIdentity, verifyIdentity } from "./identity/verify.ts";
 
 const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 const fail = (message: string) => ({ content: [{ type: "text" as const, text: message }], isError: true });
@@ -37,8 +39,10 @@ interface HeldStatement {
   label?: string;
   digest: string;
   source_format: "text" | "pdf";
-  /** Text above the table in a PDF: bank, holder, account number, period. Third-party text, shown as data. */
+  /** Text above the table: bank, holder, account number, period. Third-party text, shown as data. */
   preamble?: string[];
+  /** Account holder's name as the statement prints it, when it is labelled. */
+  holder_name?: string;
   parsed: ParsedStatement;
   verification: StatementVerification;
   loaded_at: number;
@@ -51,7 +55,7 @@ function prune(now = Date.now()): void {
   while (statements.size > MAX_STATEMENTS) statements.delete(statements.keys().next().value!);
 }
 
-function held(id: string): HeldStatement {
+export function held(id: string): HeldStatement {
   prune();
   const s = statements.get(id);
   if (!s) throw new Error(`No statement "${id}". Statements are kept for ${STATEMENT_TTL_HOURS} hours; load it again with verify_statement.`);
@@ -104,11 +108,15 @@ export function loadStatement(input: StatementInput): Record<string, unknown> {
 
   const parsed = parseStatement(text, { currency: input.currency });
   if (!parsed.rows.length) return { ok: false, error: "no_rows", warnings: parsed.warnings, skipped: parsed.skipped.slice(0, 20) };
+  if (!preamble) preamble = parsed.preamble.map((l) => cleanUntrusted(l) ?? "").filter(Boolean);
+  const holder = holderNameFrom(preamble);
   const verification = verifyStatement(parsed);
   const sourceDigest = input.pdf ? digest(input.pdf.toString("base64")) : digest(text);
   const id = `st_${sourceDigest.slice(7, 19)}`;
-  statements.set(id, { id, label: input.label, digest: sourceDigest, source_format: format, preamble, parsed, verification, loaded_at: Date.now() });
+  statements.set(id, { id, label: input.label, digest: sourceDigest, source_format: format, preamble, holder_name: holder, parsed, verification, loaded_at: Date.now() });
   prune();
+  const identity = verifiedIdentity();
+  const holderMatch = identity && holder ? matchNames(identity.full_name, holder, { surname: identity.last_name }) : undefined;
   return {
     ok: true,
     statement_id: id,
@@ -116,6 +124,8 @@ export function loadStatement(input: StatementInput): Record<string, unknown> {
     format,
     ...(pdfInfo ? { pdf: pdfInfo } : {}),
     ...(preamble?.length ? { header_text: preamble } : {}),
+    holder_name: holder ?? null,
+    ...(holderMatch ? { holder_matches_verified_identity: holderMatch.match } : {}),
     currency: parsed.currency,
     rows: parsed.rows.length,
     columns: parsed.columns,
@@ -164,6 +174,34 @@ export function completeUpload(token: string, file: Buffer, password?: string): 
   // A wrong or missing password leaves the link usable, so the owner can try again.
   if (!(result.ok === false && (result.error === "password_required" || result.error === "wrong_password"))) link.result = result;
   return result;
+}
+
+/**
+ * Who a proof is about. With a verified identity, the name comes from the registry and must match the
+ * statement's account holder when the statement prints one; a clear mismatch stops the proof, because it
+ * would mean proving someone else's money under the owner's name.
+ */
+export function proofSubject(s: HeldStatement, declaredName: string | undefined, useVerified: boolean): { subject?: Record<string, unknown>; holder?: Record<string, unknown> } {
+  const identity = useVerified ? verifiedIdentity() : undefined;
+  let match: NameMatchResult | undefined;
+  if (identity && s.holder_name) {
+    match = matchNames(identity.full_name, s.holder_name, { surname: identity.last_name });
+    if (match.match === "none" || match.match === "partial") {
+      throw new Error(
+        `The statement's account holder ("${s.holder_name}") does not match the verified identity (${identity.full_name}): ${match.explanation} A proof can only be issued for the owner's own account.`,
+      );
+    }
+  }
+  if (identity) {
+    return {
+      subject: { name: identity.full_name, name_verified: true, verified_with: identity.id_type.toUpperCase(), verified_by: identity.provider, verified_at: identity.verified_at },
+      holder: { name_on_statement: s.holder_name ?? null, matches_verified_name: match?.match ?? "not_printed" },
+    };
+  }
+  return {
+    subject: declaredName ? { declared_name: declaredName, name_verified: false } : undefined,
+    holder: s.holder_name ? { name_on_statement: s.holder_name, matches_verified_name: "not_verified" } : undefined,
+  };
 }
 
 /** The issuer identity a verifier uses to check Sooto proofs. Served at /.well-known/ofp-issuer. */
@@ -286,7 +324,8 @@ export function registerSootoTools(server: McpServer): void {
         fx_source: z.string().max(120).optional().describe("Where the rate came from, e.g. 'CBN official rate'"),
         fx_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         min_avg_monthly_inflow: z.number().positive().optional().describe("cashflow: threshold to answer yes/no against"),
-        declared_name: z.string().max(120).optional().describe("Name the owner gives for the proof. Shown as declared, not verified"),
+        declared_name: z.string().max(120).optional().describe("Name the owner gives for the proof, when no identity is verified. Shown as declared, not verified"),
+        use_verified_identity: z.boolean().optional().describe("Put the BVN/NIN-verified name on the proof (default true when one exists)"),
         nonce: z.string().max(200).optional().describe("A value the verifier asked to be included"),
         ttl_days: z.number().int().min(1).max(MAX_TTL_DAYS).optional().describe("Days the proof stays valid, default 30"),
         disclose_exact: z.boolean().optional().describe("Include exact figures instead of bands. Off unless the owner asks"),
@@ -309,12 +348,14 @@ export function registerSootoTools(server: McpServer): void {
         if (currency !== s.parsed.currency) throw new Error("cashflow proofs are issued in the statement's own currency.");
         claims = cashflowClaims(s.parsed.rows, { currency, min_avg_monthly_inflow: args.min_avg_monthly_inflow, disclose_exact: args.disclose_exact }, s.parsed.opening_balance).claims;
       }
+      const who = proofSubject(s, args.declared_name, args.use_verified_identity !== false);
+      if (who.holder) claims.account_holder = who.holder;
       const proof = newProof({
         type: args.template,
         issuer: config.baseUrl,
         verifier: args.verifier,
         purpose: args.purpose,
-        subject: args.declared_name ? { declared_name: args.declared_name, name_verified: false } : undefined,
+        subject: who.subject as Proof["subject"],
         trust_level: "L1",
         source: { provider: "statement", digest: s.digest, verification: s.verification.verdict, period: { from: s.parsed.from!, to: s.parsed.to! } },
         claims,
@@ -352,6 +393,59 @@ export function registerSootoTools(server: McpServer): void {
       const key = public_key ?? publicKeyDocument().public_key;
       const result = verifyProof(parsed, key, { expectVerifier: expect_verifier, expectNonce: expect_nonce });
       return json({ ...result, proof: result.valid ? parsed.proof : undefined });
+    }),
+  );
+
+  // --- Identity ---
+
+  server.registerTool(
+    "verify_identity",
+    {
+      title: "Verify the owner's identity (BVN or NIN)",
+      description: [
+        "Looks up the owner's OWN Bank Verification Number or National Identification Number with the configured KYC provider (Dojah or Prembly), so proofs can carry a government-verified name and statements can be checked against it.",
+        "Only for the owner's own number, and only after they agree: set consent to true only when the owner has said yes in this conversation. Never look up anyone else's BVN or NIN.",
+        "The number is never stored or shown again; only the verified names are kept. Each lookup is billed by the provider.",
+      ].join(" "),
+      inputSchema: {
+        id_type: z.enum(["bvn", "nin"]),
+        number: z.string().min(11).max(14).describe("The 11-digit number"),
+        consent: z.boolean().describe("The owner agreed to this lookup of their own number"),
+        date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional extra check, YYYY-MM-DD; compared and not kept"),
+      },
+    },
+    safe(async ({ id_type, number, consent, date_of_birth }) => {
+      try {
+        const v = await verifyIdentity({ id_type, number, consent, date_of_birth });
+        const { id_hash: _hash, ...shown } = v;
+        return json({ ok: true, identity: shown, note: "Proofs issued from now on carry this verified name. Statements are checked against it." });
+      } catch (err) {
+        if (err instanceof IdentityError) return json({ ok: false, error: err.code, message: err.message });
+        throw err;
+      }
+    }),
+  );
+
+  server.registerTool(
+    "identity_status",
+    { title: "Identity status", description: "Whether the owner's identity is verified, with which ID type and provider, and whether an identity provider is configured on this server." },
+    safe(async () => {
+      const v = verifiedIdentity();
+      const provider = configuredProvider();
+      return json({
+        verified: Boolean(v),
+        ...(v ? { name: v.full_name, id_type: v.id_type.toUpperCase(), id_ends_with: v.id_hint, provider: v.provider, verified_at: v.verified_at } : {}),
+        provider_configured: provider?.name ?? null,
+      });
+    }),
+  );
+
+  server.registerTool(
+    "forget_identity",
+    { title: "Forget the verified identity", description: "Deletes the stored verified name. Proofs already issued are not affected." },
+    safe(async () => {
+      forgetIdentity();
+      return json({ ok: true });
     }),
   );
 
